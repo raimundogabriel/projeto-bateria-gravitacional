@@ -1,0 +1,557 @@
+{
+  "version": 1,
+  "author": "Gabriel Raimundo",
+  "editor": "wokwi",
+  "parts": [
+    {
+      "type": "wokwi-esp32-devkit-v1",
+      "id": "esp",
+      "top": 0,
+      "left": 0,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-lcd2004",
+      "id": "lcd1",
+      "top": -220,
+      "left": 200,
+      "attrs": {
+        "pins": "i2c"
+      }
+    },
+    {
+      "type": "wokwi-ds1307",
+      "id": "rtc1",
+      "top": -210,
+      "left": -110,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-relay-module",
+      "id": "k1",
+      "top": 250,
+      "left": 250,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-relay-module",
+      "id": "k2",
+      "top": 330,
+      "left": 250,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-relay-module",
+      "id": "k4",
+      "top": 410,
+      "left": 250,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-led",
+      "id": "led_24v",
+      "top": 240,
+      "left": 450,
+      "attrs": {
+        "color": "yellow",
+        "label": "24V motor"
+      }
+    },
+    {
+      "type": "wokwi-led",
+      "id": "led_bts",
+      "top": 320,
+      "left": 450,
+      "attrs": {
+        "color": "green",
+        "label": "BTS"
+      }
+    },
+    {
+      "type": "wokwi-led",
+      "id": "led_gen",
+      "top": 320,
+      "left": 500,
+      "attrs": {
+        "color": "orange",
+        "label": "GERA"
+      }
+    },
+    {
+      "type": "wokwi-led",
+      "id": "led_usb",
+      "top": 400,
+      "left": 450,
+      "attrs": {
+        "color": "white",
+        "label": "Sonda USB"
+      }
+    },
+    {
+      "type": "wokwi-led",
+      "id": "led_rpwm",
+      "top": -40,
+      "left": 420,
+      "attrs": {
+        "color": "green",
+        "label": "RPWM"
+      }
+    },
+    {
+      "type": "wokwi-led",
+      "id": "led_lpwm",
+      "top": -40,
+      "left": 470,
+      "attrs": {
+        "color": "blue",
+        "label": "LPWM"
+      }
+    },
+    {
+      "type": "wokwi-led",
+      "id": "led_en",
+      "top": -40,
+      "left": 520,
+      "attrs": {
+        "color": "cyan",
+        "label": "EN"
+      }
+    },
+    {
+      "type": "wokwi-led",
+      "id": "led_freio",
+      "top": 40,
+      "left": 420,
+      "attrs": {
+        "color": "red",
+        "label": "Frenagem"
+      }
+    },
+    {
+      "type": "wokwi-led",
+      "id": "led_trava",
+      "top": 40,
+      "left": 470,
+      "attrs": {
+        "color": "purple",
+        "label": "Solenoide"
+      }
+    },
+    {
+      "type": "wokwi-buzzer",
+      "id": "bz1",
+      "top": 110,
+      "left": 420,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-slide-switch",
+      "id": "sw_emerg",
+      "top": 250,
+      "left": -160,
+      "attrs": {
+        "label": "Emergencia"
+      }
+    },
+    {
+      "type": "wokwi-slide-switch",
+      "id": "sw_fcinf",
+      "top": 250,
+      "left": -90,
+      "attrs": {
+        "label": "FC inferior"
+      }
+    },
+    {
+      "type": "wokwi-slide-switch",
+      "id": "sw_fcsup",
+      "top": 250,
+      "left": -20,
+      "attrs": {
+        "label": "FC superior"
+      }
+    },
+    {
+      "type": "wokwi-potentiometer",
+      "id": "pot_i",
+      "top": 330,
+      "left": -160,
+      "attrs": {
+        "label": "Corrente subida"
+      }
+    },
+    {
+      "type": "wokwi-potentiometer",
+      "id": "pot_dem",
+      "top": 330,
+      "left": -60,
+      "attrs": {
+        "label": "Demanda USB"
+      }
+    },
+    {
+      "type": "wokwi-ky-040",
+      "id": "enc1",
+      "top": 120,
+      "left": -260,
+      "attrs": {}
+    }
+  ],
+  "connections": [
+    [
+      "lcd1:SDA",
+      "esp:D21",
+      "blue",
+      []
+    ],
+    [
+      "lcd1:SCL",
+      "esp:D22",
+      "purple",
+      []
+    ],
+    [
+      "lcd1:GND",
+      "esp:GND.2",
+      "black",
+      []
+    ],
+    [
+      "rtc1:SDA",
+      "esp:D21",
+      "blue",
+      []
+    ],
+    [
+      "rtc1:SCL",
+      "esp:D22",
+      "purple",
+      []
+    ],
+    [
+      "rtc1:GND",
+      "esp:GND.2",
+      "black",
+      []
+    ],
+    [
+      "lcd1:VCC",
+      "esp:VIN",
+      "red",
+      []
+    ],
+    [
+      "rtc1:5V",
+      "esp:VIN",
+      "red",
+      []
+    ],
+    [
+      "k1:IN",
+      "esp:D27",
+      "orange",
+      []
+    ],
+    [
+      "k1:VCC",
+      "esp:VIN",
+      "red",
+      []
+    ],
+    [
+      "k1:GND",
+      "esp:GND.1",
+      "black",
+      []
+    ],
+    [
+      "k1:COM",
+      "esp:3V3",
+      "red",
+      []
+    ],
+    [
+      "k2:IN",
+      "esp:D23",
+      "orange",
+      []
+    ],
+    [
+      "k2:VCC",
+      "esp:VIN",
+      "red",
+      []
+    ],
+    [
+      "k2:GND",
+      "esp:GND.1",
+      "black",
+      []
+    ],
+    [
+      "k2:COM",
+      "esp:3V3",
+      "red",
+      []
+    ],
+    [
+      "k4:IN",
+      "esp:D13",
+      "orange",
+      []
+    ],
+    [
+      "k4:VCC",
+      "esp:VIN",
+      "red",
+      []
+    ],
+    [
+      "k4:GND",
+      "esp:GND.1",
+      "black",
+      []
+    ],
+    [
+      "k4:COM",
+      "esp:3V3",
+      "red",
+      []
+    ],
+    [
+      "k1:NO",
+      "led_24v:A",
+      "yellow",
+      []
+    ],
+    [
+      "k2:NO",
+      "led_bts:A",
+      "green",
+      []
+    ],
+    [
+      "k2:NC",
+      "led_gen:A",
+      "orange",
+      []
+    ],
+    [
+      "k4:NO",
+      "led_usb:A",
+      "white",
+      []
+    ],
+    [
+      "led_24v:C",
+      "esp:GND.1",
+      "black",
+      []
+    ],
+    [
+      "led_bts:C",
+      "esp:GND.1",
+      "black",
+      []
+    ],
+    [
+      "led_gen:C",
+      "esp:GND.1",
+      "black",
+      []
+    ],
+    [
+      "led_usb:C",
+      "esp:GND.1",
+      "black",
+      []
+    ],
+    [
+      "led_rpwm:C",
+      "esp:GND.1",
+      "black",
+      []
+    ],
+    [
+      "led_lpwm:C",
+      "esp:GND.1",
+      "black",
+      []
+    ],
+    [
+      "led_en:C",
+      "esp:GND.1",
+      "black",
+      []
+    ],
+    [
+      "led_freio:C",
+      "esp:GND.1",
+      "black",
+      []
+    ],
+    [
+      "led_trava:C",
+      "esp:GND.1",
+      "black",
+      []
+    ],
+    [
+      "led_rpwm:A",
+      "esp:RX2",
+      "green",
+      []
+    ],
+    [
+      "led_lpwm:A",
+      "esp:TX2",
+      "green",
+      []
+    ],
+    [
+      "led_en:A",
+      "esp:D18",
+      "green",
+      []
+    ],
+    [
+      "led_freio:A",
+      "esp:D19",
+      "green",
+      []
+    ],
+    [
+      "led_trava:A",
+      "esp:D4",
+      "green",
+      []
+    ],
+    [
+      "bz1:2",
+      "esp:D14",
+      "green",
+      []
+    ],
+    [
+      "bz1:1",
+      "esp:GND.1",
+      "black",
+      []
+    ],
+    [
+      "sw_emerg:2",
+      "esp:D34",
+      "green",
+      []
+    ],
+    [
+      "sw_emerg:1",
+      "esp:3V3",
+      "red",
+      []
+    ],
+    [
+      "sw_emerg:3",
+      "esp:GND.1",
+      "black",
+      []
+    ],
+    [
+      "sw_fcinf:2",
+      "esp:D25",
+      "green",
+      []
+    ],
+    [
+      "sw_fcinf:1",
+      "esp:GND.1",
+      "black",
+      []
+    ],
+    [
+      "sw_fcinf:3",
+      "esp:3V3",
+      "red",
+      []
+    ],
+    [
+      "sw_fcsup:2",
+      "esp:D26",
+      "green",
+      []
+    ],
+    [
+      "sw_fcsup:1",
+      "esp:GND.1",
+      "black",
+      []
+    ],
+    [
+      "sw_fcsup:3",
+      "esp:3V3",
+      "red",
+      []
+    ],
+    [
+      "pot_i:SIG",
+      "esp:D35",
+      "green",
+      []
+    ],
+    [
+      "pot_i:VCC",
+      "esp:3V3",
+      "red",
+      []
+    ],
+    [
+      "pot_i:GND",
+      "esp:GND.1",
+      "black",
+      []
+    ],
+    [
+      "pot_dem:SIG",
+      "esp:VN",
+      "green",
+      []
+    ],
+    [
+      "pot_dem:VCC",
+      "esp:3V3",
+      "red",
+      []
+    ],
+    [
+      "pot_dem:GND",
+      "esp:GND.1",
+      "black",
+      []
+    ],
+    [
+      "enc1:CLK",
+      "esp:D32",
+      "green",
+      []
+    ],
+    [
+      "enc1:DT",
+      "esp:D33",
+      "green",
+      []
+    ],
+    [
+      "enc1:VCC",
+      "esp:3V3",
+      "red",
+      []
+    ],
+    [
+      "enc1:GND",
+      "esp:GND.1",
+      "black",
+      []
+    ]
+  ],
+  "dependencies": {}
+}

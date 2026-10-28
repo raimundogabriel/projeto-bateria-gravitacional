@@ -10,6 +10,26 @@ funções em `src/`, dados em `data/`, abas, cards e um sistema de lógica fuzzy
 
 ---
 
+## 🔋 Situação na bateria gravitacional
+
+Este mock ainda usa as grandezas de um ventilador (temperatura, umidade,
+luminosidade) e o fuzzy `fuzzy_ventilador.py`. Para virar o painel da bateria
+gravitacional (HANDOFF-005 em `00_MASTER/HANDOFF.md`), falta:
+
+| Hoje | Na bateria gravitacional |
+| --- | --- |
+| Colunas `temperatura`, `umidade`, `luminosidade` | Campos de `grav/estado` em `03_SOFTWARE/contrato_dados.md` (altura, nível, potência de subida, gerada e USB, estado, tarifa, demanda) |
+| Fuzzy do ventilador (2 entradas) | Fuzzy de 3 entradas e 11 regras de `01_FISICA/algoritmos_controle.md`, com as mesmas funções de pertinência do firmware |
+| Aba Correlação temperatura × umidade | Tensão gerada × velocidade de descida (dados dos ensaios) |
+| Controles simulados | Botões `auto`, `subir`, `descer`, `parar`, `rearmar` → `grav/comando`; tabela de tarifas → `grav/tarifas` |
+| Mini relatório | Energia por ciclo e economia **simulada**, com o consumo da eletrônica à parte |
+
+O relatório revisado fala em Node-RED + Mosquitto; este repositório usa
+Streamlit. A escolha está em aberto (Q-001 em
+`04_AUDITORIA/questoes_abertas.md`).
+
+---
+
 ## 📁 Estrutura do Projeto
 
 ```
