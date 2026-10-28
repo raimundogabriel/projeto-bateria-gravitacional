@@ -1,0 +1,4 @@
+# Bibliotecas do projeto (Wokwi instala sozinho)
+LiquidCrystal I2C
+RTClib
+Adafruit BusIO
