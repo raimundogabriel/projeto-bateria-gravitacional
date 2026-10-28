@@ -29,6 +29,13 @@ Saem: GPIO 14 (buzzer), 23 (K2) e o LCD/DS3231 do I²C.
 | 0x41 | INA219 nº 2, barramento gerado (jumper A0) |
 
 ## Simulação no Wokwi
-O Wokwi tem servo, potenciômetros e chaves, então o MVP simula melhor que o
-projeto principal (sem relés para inventar). INA219 continua sendo trocado
-por potenciômetros, como hoje.
+Projeto em `firmware/wokwi/`. O Wokwi tem servo, potenciômetros e chaves,
+então o MVP simula melhor que o projeto principal (sem relés para inventar).
+Pinos usados só na simulação:
+
+| GPIO | Função no Wokwi | No protótipo real |
+|------|-----------------|-------------------|
+| 35 | Potenciômetro da corrente de subida (0 a 3 A) | INA219 nº 1 pelo I²C |
+| 23 | LED verde do gerador (GEN > 2 V) | LED com 1 kΩ direto no GEN, sem software |
+| 14 | LED amarelo do gerador (GEN > 6,5 V) | Zener 4,7 V + 1 kΩ no GEN |
+| 2 | LED vermelho do gerador (GEN > 10 V) | Zener 8,2 V + 1 kΩ no GEN |

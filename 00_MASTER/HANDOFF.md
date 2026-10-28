@@ -7,7 +7,7 @@
 
 ## 🔴 ABERTOS (aguardando ação de outra skill)
 
-> HANDOFF-009 a HANDOFF-012 são da variante MVP para fablab:
+> HANDOFF-009 a HANDOFF-013 são da variante MVP para fablab:
 > `MVP_FABLAB/00_MASTER/HANDOFF.md`.
 
 ### HANDOFF-003

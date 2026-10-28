@@ -47,10 +47,10 @@ sua pasta dentro de `MVP_FABLAB/`.
 
 | Pasta | Persona | Conteúdo |
 |-------|---------|----------|
-| `00_MASTER/` | todas | Estado, decisões (DEC-014 a DEC-021), handoffs (HANDOFF-009 a 012), questões (Q-009 a Q-011) |
+| `00_MASTER/` | todas | Estado, decisões (DEC-014 a DEC-021), handoffs (HANDOFF-009 a 013), questões (Q-009 a Q-011) |
 | `01_FISICA/` | FÍSICO | Premissas, energia e geração por velocidade, ensaios do MVP |
 | `02_ARQUITETO/` | ARQUITETO | Mecânica para fablab, circuito com diagramas, BOM e lista do que sai |
-| `03_SOFTWARE/` | DESENVOLVEDOR | Pinagem do MVP e o que muda no firmware e no painel |
+| `03_SOFTWARE/` | DESENVOLVEDOR | Pinagem, firmware e projeto Wokwi do MVP, painel Streamlit adaptado |
 
 ## Ordem de leitura
 1. `00_MASTER/DECISOES.md` — cada corte e o motivo
@@ -58,3 +58,5 @@ sua pasta dentro de `MVP_FABLAB/`.
 3. `01_FISICA/calculos_energia.md` — por que 5 kg só acende LED
 4. `02_ARQUITETO/circuito.md` — como geração funciona sem relé
 5. `01_FISICA/validacao_experimental.md` — o ensaio 0 decide a compra do motor
+6. `03_SOFTWARE/firmware/README.md` — como rodar o MVP no Wokwi
+7. `03_SOFTWARE/dashboard/README.md` — painel Streamlit do MVP

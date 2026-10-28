@@ -29,17 +29,28 @@ Continua a numeração de `00_MASTER/HANDOFF.md` da raiz (até HANDOFF-008).
 - **De:** ARQUITETO
 - **Para:** DESENVOLVEDOR
 - **O quê:** Firmware do MVP conforme `../03_SOFTWARE/adaptacao_firmware.md`
-  (constantes, `modoPonte()`, servo, 2× INA219, NTP, MQTT), com projeto
-  Wokwi próprio.
+  (constantes, ponte de 4 modos, servo, NTP), com projeto Wokwi próprio.
 - **Critério de pronto:** subir, descer, manter, falha e automático
   conferidos no Wokwi; código em `../03_SOFTWARE/firmware/`.
+- **Andamento:** código e `diagram.json` prontos em 2026-10-28, testados fora
+  do Wokwi com pinos simulados; falta rodar dentro do Wokwi.
 - **Criado em:** 2026-10-28
 
-### HANDOFF-012
-- **De:** FÍSICO
+### HANDOFF-013
+- **De:** DESENVOLVEDOR
 - **Para:** DESENVOLVEDOR
-- **O quê:** Seletor "Projeto principal / MVP fablab" no painel Streamlit com
-  os parâmetros de `../01_FISICA/premissas.md`.
-- **Critério de pronto:** simulador do MVP mostra 49 J por ciclo e
-  η_ciclo ~0,10.
+- **O quê:** MQTT no firmware do MVP (`grav/estado`, `grav/energia`,
+  `grav/comando` com `w` de demanda) e coletor em `ler_esp32()` do painel.
+  Depende de Q-006 (onde roda o broker).
+- **Critério de pronto:** o painel mostra o Wokwi ou o protótipo ao vivo.
 - **Criado em:** 2026-10-28
+
+## 🟢 FECHADOS
+
+### HANDOFF-012 — fechado em 2026-10-28
+- **De:** FÍSICO → **Para:** DESENVOLVEDOR
+- Painel Streamlit com os parâmetros do MVP.
+- Entrega: `../03_SOFTWARE/dashboard/`, cópia adaptada do painel principal
+  (49 J por ciclo, rendimento ~10 %, LEDs no lugar da USB). Em vez de um
+  seletor no painel principal, ficou uma cópia para não alterar o projeto
+  principal.

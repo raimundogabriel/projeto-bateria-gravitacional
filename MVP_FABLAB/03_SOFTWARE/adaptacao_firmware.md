@@ -1,8 +1,9 @@
 # O QUE MUDA NO FIRMWARE E NO PAINEL — MVP FABLAB
 
-Ainda não implementado (avaliação primeiro, HANDOFF-011). Plano: copiar
-`03_SOFTWARE/firmware/wokwi/sketch.ino` da raiz para
-`MVP_FABLAB/03_SOFTWARE/firmware/` e mudar só o que está abaixo. A máquina de
+**Implementado em 2026-10-28** em `firmware/wokwi/` (HANDOFF-011), menos o
+MQTT (item 8) e as leituras reais de `SIMULACAO 0`. O painel está em
+`dashboard/` (HANDOFF-012). O firmware partiu de
+`03_SOFTWARE/firmware/wokwi/sketch.ino` da raiz e mudou só o que está abaixo. A máquina de
 estados (`MANTER`, `SUBINDO`, `PREP_DESCIDA`, `DESCENDO`, `PARANDO`, `FALHA`,
 `REARME`), o fuzzy e as proteções continuam.
 
@@ -58,8 +59,8 @@ estados (`MANTER`, `SUBINDO`, `PREP_DESCIDA`, `DESCENDO`, `PARANDO`, `FALHA`,
    projeto principal, que aproveita).
 
 ## Painel Streamlit
-O painel de `03_SOFTWARE/dashboard/` serve sem mudar a estrutura. Basta um
-arquivo de parâmetros (ou um seletor "Projeto principal / MVP fablab") com
-massa, curso, `KE_MASSA`, velocidades e rendimentos do MVP, para o simulador
-e a aba Energia mostrarem os números certos (49 J por ciclo, η_ciclo ~0,10).
-A aba de USB vira "LEDs / carga fixa".
+Cópia do painel de `03_SOFTWARE/dashboard/` em `dashboard/`, com a mesma
+estrutura e as mesmas abas. Mudam os parâmetros do simulador (5 kg, 1,00 m,
+`KE_MASSA` 214, rendimentos do MVP), a velocidade-alvo do fuzzy (0,02 a
+0,05 m/s) e a saída útil: as colunas `p_usb_w` e `e_usb_j` viram `p_leds_w` e
+`e_leds_j` (potência e energia nos 3 LEDs de nível). Ver `dashboard/README.md`.
