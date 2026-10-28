@@ -2,8 +2,9 @@
 Camada de dados do dashboard.
 
 O dashboard só conversa com `obter_leituras()`. Hoje ela devolve dados
-simulados ou um CSV de exemplo; quando o ESP32 estiver pronto, basta
-implementar `ler_esp32()` — o resto do dashboard não muda.
+simulados ou um CSV de exemplo; quando o ESP32 publicar em `grav/estado`
+(ver `03_SOFTWARE/contrato_dados.md`), basta implementar `ler_esp32()` — o
+resto do dashboard não muda.
 """
 import pandas as pd
 
@@ -15,7 +16,7 @@ FONTES = [FONTE_SIMULADOR, FONTE_CSV]
 
 # janela -> (minutos, intervalo entre leituras em segundos)
 JANELAS = {
-    "15 minutos": (15, 5),
+    "15 minutos": (15, 2),
     "1 hora": (60, 5),
     "6 horas": (360, 30),
     "24 horas": (1440, 120),
@@ -43,23 +44,23 @@ def ler_esp32(minutos):
     """
     TODO: ler as leituras reais do ESP32.
 
-    Opções comuns:
-      - HTTP: o ESP32 expõe GET /leituras e aqui usamos requests.get(...)
-      - MQTT: o ESP32 publica em um tópico e um coletor grava em CSV/SQLite
-      - Serial: pyserial lendo uma linha JSON por leitura
+    O ESP32 publica `grav/estado` (30 s e a cada troca de estado) e
+    `grav/energia` por MQTT. Um coletor (por exemplo, paho-mqtt) assina os
+    tópicos e grava cada mensagem em CSV ou SQLite; aqui lemos a janela pedida.
 
     Deve devolver um DataFrame com as mesmas colunas de `COLUNAS`.
     """
     raise NotImplementedError("Conexão com o ESP32 ainda não implementada.")
 
 
-def obter_leituras(fonte=FONTE_SIMULADOR, janela="1 hora"):
+def obter_leituras(fonte=FONTE_SIMULADOR, janela="1 hora", tarifas=None):
     """
     Devolve as leituras da janela escolhida, da mais antiga para a mais nova.
 
     Parameters:
         fonte (str): Uma das opções de FONTES.
         janela (str): Uma das chaves de JANELAS.
+        tarifas (dict): R$/kWh por posto, usado pelo simulador.
 
     Returns:
         DataFrame: Leituras com as colunas de COLUNAS.
@@ -71,4 +72,4 @@ def obter_leituras(fonte=FONTE_SIMULADOR, janela="1 hora"):
         inicio = df["timestamp"].max() - pd.Timedelta(minutes=minutos)
         return df[df["timestamp"] >= inicio].reset_index(drop=True)
 
-    return gerar_leituras(minutos=minutos, intervalo_s=intervalo_s)
+    return gerar_leituras(minutos=minutos, intervalo_s=intervalo_s, tarifas=tarifas)

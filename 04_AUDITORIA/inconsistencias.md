@@ -43,7 +43,7 @@ Severidade: 🔴 crítica (impede funcionar ou cria risco físico) · 🟠 alta
 | INC-025 | Repositório (template) | Interno | 🔴 | Premissas, decisões e handoffs com 500 kg e 3 m, contra a DEC-001 (20 kg, 1,70 m) | resolvido nesta consolidação |
 | INC-026 | Doc v2 §4.3, §5 × firmware | Interno | 🟡 | Doc v2 diz eFLL; o firmware usa fuzzy escrito à mão | aberto (Q-005) |
 | INC-027 | Doc v2 Quadros 2–3 × eletrônica v2 | Interno | 🟠 | Doc v2 traz 2 INA226, resistor de 22 Ω, relé de modo que "só comuta com corrente nula"; a eletrônica v2 tem 3 INA226, 11 Ω, K2 com repouso em geração, K4 de sondagem | aberto: atualizar o texto do relatório |
-| INC-028 | Doc v2 §6 × `03_SOFTWARE/dashboard/` | Interno | 🟡 | Doc v2 diz Node-RED + Mosquitto; repositório tem Streamlit | aberto (Q-001) |
+| INC-028 | Doc v2 §6 × `03_SOFTWARE/dashboard/` | Interno | 🟡 | Doc v2 diz Node-RED + Mosquitto; repositório tem Streamlit | resolvido DEC-013 (seção 6 do doc v2 corrigida) |
 | INC-029 | Doc v2 §4.4, §6 × firmware | Técnico | 🟡 | Doc v2 descreve publicação MQTT; o firmware ainda não tem MQTT | aberto |
 | INC-030 | Doc v2 Quadro 2 × firmware | Técnico | 🟡 | Doc v2 diz que o RTC trata fins de semana; `tarifaDaHora()` só olha a hora | aberto (Q-003) |
 | INC-031 | `03_SOFTWARE/firmware/wokwi/diagram.json` | Técnico | 🟡 | Nomes de pinos do Wokwi escritos sem abrir o simulador; código não rodou dentro do Wokwi | aberto |
