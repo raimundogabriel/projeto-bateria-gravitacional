@@ -20,8 +20,9 @@ feito fora do repositório entre 2026-10-07 e 2026-10-22)
   simulados)
 - [x] Texto do relatório revisado →
   `05_DOC_ORIGINAL/Documentacao_1_Integracao_Bateria_Gravitacional_v2.docx`
-- [x] Mock do dashboard em Streamlit (ainda com grandezas de ventilador) →
-  `03_SOFTWARE/dashboard/`
+- [x] Painel Streamlit da bateria (DEC-013) com simulador da planta, fuzzy
+  idêntico ao firmware, energia por descida e economia simulada →
+  `03_SOFTWARE/dashboard/` (HANDOFF-005 fechado)
 
 ## 🔄 EM ANDAMENTO
 - Rodar o firmware dentro do Wokwi e conferir o `diagram.json` — responsável:
@@ -30,13 +31,12 @@ feito fora do repositório entre 2026-10-07 e 2026-10-22)
   definido no papel, ainda não implementado no firmware — DESENVOLVEDOR
 
 ## ⏸️ BLOQUEADO
-- Adaptar o dashboard às grandezas da bateria (HANDOFF-005) — bloqueado por:
-  escolha entre Streamlit e Node-RED — depende de: grupo (Q-001)
 - Validação experimental (HANDOFF-006) — bloqueado por: compra e montagem —
   depende de: ARQUITETO (compras) e DESENVOLVEDOR (leituras reais)
 
 ## ❌ NÃO INICIADO
-- MQTT no firmware (hoje só Monitor Serial e LCD)
+- MQTT no firmware (hoje só Monitor Serial e LCD) e coletor MQTT em
+  `ler_esp32()` do painel
 - Leituras reais em `lerSensores()` com `SIMULACAO 0` (HANDOFF-003)
 - Desenho técnico cotado da torre (HANDOFF-007)
 - Cotação e compra: motorredutor planetário 24 V 1:50, eletrônica (~R$ 670),
@@ -46,7 +46,6 @@ feito fora do repositório entre 2026-10-07 e 2026-10-22)
 ## ⚠️ ALERTAS
 - O relatório v2 está atrás da eletrônica v2 (fala em 2 INA226, 22 Ω, eFLL,
   relé que "só comuta com corrente nula") — INC-026 e INC-027
-- O relatório cita Node-RED; o repositório tem Streamlit — INC-028 / Q-001
 - A tabela de tarifas do firmware não trata fins de semana, que o relatório
   diz tratar — INC-030
 - O `diagram.json` foi montado sem abrir o Wokwi; fios podem aparecer soltos
@@ -55,7 +54,7 @@ feito fora do repositório entre 2026-10-07 e 2026-10-22)
   ensaio
 
 ## PRÓXIMA AÇÃO RECOMENDADA
-1. Decidir Q-001 (painel em Streamlit ou Node-RED) e adaptar o painel
+1. Implementar MQTT no firmware e o coletor no painel (HANDOFF-004)
 2. Rodar o roteiro de teste no Wokwi (`03_SOFTWARE/firmware/README.md`) e
    corrigir o `diagram.json` se preciso
 3. Cotar e comprar o motorredutor; fazer o ensaio de bancada do gerador

@@ -54,8 +54,8 @@ Cauã Felipe Batista Tito e Iasmim Kamilly A. Silva.
 - MCU: ESP32-WROOM-32 (DevKit V1), firmware C++ no ambiente Arduino
 - Simulação: Wokwi (ESP32), em `03_SOFTWARE/firmware/wokwi/`
 - Acionamento: motorredutor DC 24 V ~50 W, planetário 1:50 + driver BTS7960
-- Dashboard: Streamlit (mock em `03_SOFTWARE/dashboard/`); o relatório cita
-  Node-RED, escolha em aberto (ver `04_AUDITORIA/questoes_abertas.md` Q-001)
+- Dashboard: Python + Streamlit em `03_SOFTWARE/dashboard/` (DEC-013), hoje
+  alimentado por um simulador da planta
 - Comunicação: MQTT (broker Mosquitto), tópicos `grav/*`
 - Sensores: encoder LPD3806-600BM no tambor, 3× INA226 (shunt 10 mΩ),
   2 fins de curso NF, RTC DS3231, sondagem de demanda USB

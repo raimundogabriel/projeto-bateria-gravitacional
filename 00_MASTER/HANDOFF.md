@@ -30,17 +30,8 @@
   `03_SOFTWARE/contrato_dados.md`.
 - **Critério de pronto:** firmware publica `grav/energia` e o painel mostra os
   quatro valores e a economia simulada.
-- **Criado em:** 2026-10-28
-
-### HANDOFF-005
-- **De:** FÍSICO
-- **Para:** DESENVOLVEDOR
-- **O quê:** Trocar o mock de ventilador (`03_SOFTWARE/dashboard/`, temperatura
-  e umidade) pelas grandezas da bateria (altura, potência, estado, decisões
-  fuzzy, tarifa, demanda) e pelo fuzzy de 3 entradas. Depende da Q-001
-  (Streamlit ou Node-RED).
-- **Critério de pronto:** painel lê `grav/estado`, `grav/acao`, `grav/energia`
-  (ou o simulador com as mesmas colunas) e envia `grav/comando`.
+- **Andamento:** lado do painel pronto em 2026-10-28 (aba Energia, com dados
+  do simulador); falta o firmware publicar.
 - **Criado em:** 2026-10-28
 
 ### HANDOFF-006
@@ -65,6 +56,13 @@
 - **Criado em:** 2026-10-28
 
 ## 🟢 FECHADOS (histórico)
+
+### HANDOFF-005 — fechado em 2026-10-28
+- **De:** FÍSICO → **Para:** DESENVOLVEDOR
+- Trocar o mock de ventilador do painel pelas grandezas da bateria e pelo fuzzy
+  de 3 entradas (DEC-013).
+- Entrega: `03_SOFTWARE/dashboard/` com simulador no formato de
+  `grav/estado`; o envio real de `grav/comando` depende do MQTT (HANDOFF-004).
 
 ### HANDOFF-001 — fechado em 2026-10-07
 - **De:** FÍSICO → **Para:** ARQUITETO

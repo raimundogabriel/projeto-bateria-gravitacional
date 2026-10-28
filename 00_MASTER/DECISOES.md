@@ -190,3 +190,18 @@ Modelo de entrada:
 - **Consequências:** Acima de 50 kg, a travessa superior passa a 50 × 50 ×
   2 mm.
 - **Revisável em:** se a massa aumentar.
+
+## DEC-013 — Painel remoto em Streamlit
+- **Data:** 2026-10-28
+- **Skill:** DESENVOLVEDOR
+- **Contexto:** O relatório revisado citava Node-RED + Mosquitto; o
+  repositório já tinha um mock em Streamlit (Q-001, INC-028).
+- **Decisão:** O painel é o Streamlit de `03_SOFTWARE/dashboard/`, adaptado à
+  bateria: simulador com a mesma planta e o mesmo fuzzy do firmware, abas de
+  energia, fuzzy e controle. Decidido pelo Gabriel.
+- **Alternativas descartadas:** Node-RED (exigiria refazer o painel do zero
+  numa ferramenta que o grupo ainda não usa no repositório).
+- **Consequências:** O broker MQTT (Mosquitto) continua; o painel precisa de um
+  coletor MQTT em `ler_esp32()`. A seção 6 do relatório passa a citar
+  Streamlit.
+- **Revisável em:** não se aplica.

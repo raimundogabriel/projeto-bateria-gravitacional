@@ -1,42 +1,59 @@
 import pandas as pd
 import streamlit as st
 
-from src.correlacao import calcular_correlacao, descrever_correlacao
-from src.fuzzy_ventilador import (
+from src.energia import E_TEORICA_J, em_wh, resumo_energia, tabela_ciclos
+from src.fuzzy_bateria import (
     REGRAS,
-    calcular_ventilador_fuzzy,
-    classificar_ventilador,
+    ativar_regras,
+    calcular_comando,
+    classificar_comando,
     curvas_pertinencia,
+    superficie,
+    velocidade_alvo,
 )
 from src.load_data import FONTE_SIMULADOR, FONTES, JANELAS, obter_leituras
+from src.simulador import CURSO, DIA_SIMULADO_S, POSTOS, TARIFAS_PADRAO
 from src.visualizacao import (
+    grafico_barras_ciclos,
+    grafico_barras_estado,
     grafico_disp,
     grafico_linha,
     grafico_pertinencia,
+    grafico_series,
     histograma,
-    mapa_calor,
+    mapa_comando,
 )
 
 # =====================================================================
 # CONFIGURAÇÃO DO DASHBOARD
 # =====================================================================
 st.set_page_config(
-    page_title="Dashboard — ESP32 Monitor",
+    page_title="Dashboard — Bateria Gravitacional",
     layout="wide",
-    page_icon="📡",
+    page_icon="🔋",
 )
 
-# Grandezas medidas: coluna -> (título, unidade)
-GRANDEZAS = {
-    "temperatura": ("Temperatura", "°C"),
-    "umidade": ("Umidade", "%"),
-    "luminosidade": ("Luminosidade", "lux"),
+POTENCIAS = {
+    "p_subida_w": "Consumida na subida",
+    "p_gerada_w": "Gerada na descida",
+    "p_usb_w": "Entregue à USB",
 }
 
 ROTULOS_FUZZY = {
-    "fria": "Fria", "agradavel": "Agradável", "quente": "Quente",
-    "seca": "Seca", "ideal": "Ideal", "umida": "Úmida",
     "baixa": "Baixa", "media": "Média", "alta": "Alta",
+    "baixo": "Baixo", "medio": "Médio", "alto": "Alto",
+    "descer": "Descer", "descer_parcial": "Descer parcial", "manter": "Manter", "subir": "Subir",
+}
+
+# estado do firmware -> (nível da faixa, texto)
+ESTADOS = {
+    "MANTER": ("low", "⏸️ MANTER — motor desligado, trava engatada"),
+    "SUBINDO": ("medium", "⬆️ SUBINDO — armazenando energia"),
+    "PREP_DESCIDA": ("medium", "🔓 PREP_DESCIDA — aliviando a lingueta"),
+    "DESCENDO": ("high", "⬇️ DESCENDO — gerando energia"),
+    "PARANDO": ("medium", "⏹️ PARANDO — frenagem a 100 %"),
+    "FALHA": ("high", "🚨 FALHA — aguardando rearme"),
+    "REARME": ("medium", "🔁 REARME — descendo até o fim de curso inferior"),
 }
 
 # =====================================================================
@@ -64,7 +81,7 @@ st.markdown("""
     }
     .risk-low    { background-color: rgba(12, 163, 12, 0.16);  border: 1px solid rgba(12, 163, 12, 0.45); }
     .risk-medium { background-color: rgba(250, 178, 25, 0.18); border: 1px solid rgba(250, 178, 25, 0.55); }
-    .risk-high   { background-color: rgba(208, 59, 59, 0.16);  border: 1px solid rgba(208, 59, 59, 0.5); }
+    .risk-high   { background-color: rgba(42, 120, 214, 0.16); border: 1px solid rgba(42, 120, 214, 0.5); }
     .mock-aviso {
         padding: 8px 14px;
         border-radius: 8px;
@@ -88,39 +105,20 @@ def faixa(nivel, texto):
     st.markdown(f"<div class='risk-{nivel}'>{texto}</div>", unsafe_allow_html=True)
 
 
-def formatar_uptime(segundos):
-    dias, resto = divmod(int(segundos), 86400)
-    horas, resto = divmod(resto, 3600)
-    minutos = resto // 60
-    return f"{dias}d {horas:02d}h {minutos:02d}min"
+def hora_simulada(hora):
+    h = int(hora)
+    return f"{h:02d}:{int((hora - h) * 60):02d}"
 
 
-def qualidade_wifi(rssi):
-    if rssi >= -60:
-        return "Excelente"
-    if rssi >= -70:
-        return "Bom"
-    if rssi >= -80:
-        return "Fraco"
-    return "Muito fraco"
-
-
-def avaliar_ambiente(leitura, temp_max, umid_max):
-    """Estado do ambiente a partir da última leitura: (nível, texto)."""
-    if leitura["temperatura"] > temp_max:
-        return "high", f"🔴 Alerta — temperatura acima do limite de {temp_max:g} °C"
-    if leitura["umidade"] > umid_max:
-        return "medium", f"🟡 Atenção — umidade acima do limite de {umid_max:g} %"
-    if leitura["temperatura"] > temp_max - 1.5:
-        return "medium", f"🟡 Atenção — temperatura próxima do limite de {temp_max:g} °C"
-    return "low", "🟢 Ambiente dentro dos limites"
+def reais(valor):
+    return f"R$ {valor:.6f}".replace(".", ",")
 
 
 # =====================================================================
 # BARRA LATERAL
 # =====================================================================
 with st.sidebar:
-    st.title("📡 ESP32 Monitor")
+    st.title("🔋 Bateria Gravitacional")
 
     fonte = st.radio("Fonte de dados", FONTES)
     janela = st.selectbox("Janela de tempo", list(JANELAS), index=1)
@@ -130,29 +128,35 @@ with st.sidebar:
     intervalo = st.slider("Intervalo de atualização (s)", 2, 30, 5, disabled=not ao_vivo)
 
     st.divider()
-    st.subheader("Limites de alerta")
-    temp_max = st.number_input("Temperatura máxima (°C)", 15.0, 45.0, 30.0, step=0.5, format="%.1f")
-    umid_max = st.number_input("Umidade máxima (%)", 30.0, 100.0, 75.0, step=1.0, format="%.0f")
+    st.subheader("Tarifas (R$/kWh)")
+    st.caption("No protótipo, vão ao ESP32 pelo tópico `grav/tarifas`.")
+    tarifas = {
+        posto: st.number_input(POSTOS[posto], 0.0, 2.0, valor, step=0.05, format="%.2f", key=f"tarifa_{posto}")
+        for posto, valor in TARIFAS_PADRAO.items()
+    }
 
     st.divider()
-    st.caption("Mockup — nenhum ESP32 conectado. Todas as leituras são simuladas.")
+    st.caption(
+        f"Simulador — nenhum ESP32 conectado. O dia de tarifas é acelerado: "
+        f"um dia inteiro a cada {DIA_SIMULADO_S // 60} minutos."
+    )
 
 atualizar_a_cada = intervalo if (ao_vivo and fonte == FONTE_SIMULADOR) else None
 
 # =====================================================================
 # TÍTULO
 # =====================================================================
-st.title("Dashboard de Monitoramento — ESP32")
+st.title("Bateria Gravitacional — Painel Remoto")
 st.markdown(
-    "<div class='mock-aviso'>🧪 <b>Mockup</b> — dados simulados. "
-    "A conexão com o ESP32 entra em <code>src/load_data.py</code>.</div>",
+    "<div class='mock-aviso'>🧪 <b>Simulação</b> — planta virtual de 20 kg e 1,70 m, igual à do firmware. "
+    "A conexão com o ESP32 (MQTT <code>grav/*</code>) entra em <code>src/load_data.py</code>.</div>",
     unsafe_allow_html=True,
 )
 
 # =====================================================================
 # CARREGAR DADOS
 # =====================================================================
-df = obter_leituras(fonte, janela)
+df = obter_leituras(fonte, janela, tarifas)
 
 # =====================================================================
 # TABS DO DASHBOARD
@@ -160,9 +164,9 @@ df = obter_leituras(fonte, janela)
 tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
     "Tempo Real",
     "Histórico",
-    "Correlação",
+    "Energia",
     "Lógica Fuzzy",
-    "Dispositivo",
+    "Controle",
     "Mini Relatório",
 ])
 
@@ -172,39 +176,52 @@ tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
 # =====================================================================
 @st.fragment(run_every=atualizar_a_cada)
 def painel_tempo_real():
-    dados = obter_leituras(fonte, janela)
+    dados = obter_leituras(fonte, janela, tarifas)
     atual = dados.iloc[-1]
-    ventilador = calcular_ventilador_fuzzy(atual["temperatura"], atual["umidade"])
 
     st.caption(
-        f"Última leitura: {atual['timestamp']:%d/%m/%Y %H:%M:%S}"
+        f"Última leitura: {atual['timestamp']:%d/%m/%Y %H:%M:%S} · hora simulada {hora_simulada(atual['hora_sim'])}"
         + (f" · atualiza a cada {atualizar_a_cada} s" if atualizar_a_cada else " · atualização pausada")
     )
 
-    col1, col2, col3, col4 = st.columns(4)
-    for col, (coluna, (titulo, unidade)) in zip((col1, col2, col3), GRANDEZAS.items()):
-        casas = 1
-        col.markdown(
-            card(
-                titulo, f"{atual[coluna]:.{casas}f}", unidade,
-                f"média {dados[coluna].mean():.{casas}f} · mín {dados[coluna].min():.{casas}f} · máx {dados[coluna].max():.{casas}f}",
-            ),
-            unsafe_allow_html=True,
-        )
+    col1, col2, col3, col4, col5 = st.columns(5)
+    col1.markdown(
+        card("Nível de carga", f"{atual['nivel_pct']:.0f}", "%",
+             f"altura {atual['h_m']:.2f} m de {CURSO:.2f} m · {atual['nivel_pct'] / 100 * E_TEORICA_J:.0f} J"),
+        unsafe_allow_html=True,
+    )
+    col2.markdown(
+        card("Velocidade", f"{atual['v_ms'] * 100:+.1f}", "cm/s",
+             f"frenagem {atual['frenagem_pct']:.0f} % · gerador {atual['v_gen_v']:.1f} V"),
+        unsafe_allow_html=True,
+    )
+    potencia = atual["p_subida_w"] if atual["estado"] == "SUBINDO" else atual["p_gerada_w"]
+    col3.markdown(
+        card("Potência", f"{potencia:.1f}", "W", "consumida na subida" if atual["estado"] == "SUBINDO" else "gerada na descida"),
+        unsafe_allow_html=True,
+    )
     col4.markdown(
-        card("Ventilador (fuzzy)", f"{ventilador:.0f}", "%", classificar_ventilador(ventilador)[1]),
+        card("Saída USB", f"{atual['p_usb_w']:.1f}", "W", f"demanda {atual['demanda_w']:.1f} W"),
+        unsafe_allow_html=True,
+    )
+    col5.markdown(
+        card("Tarifa", f"{atual['tarifa_rs_kwh']:.2f}", "R$/kWh", f"{atual['posto']} · fuzzy {atual['comando']:+.0f}"),
         unsafe_allow_html=True,
     )
 
     st.write("")
-    faixa(*avaliar_ambiente(atual, temp_max, umid_max))
+    faixa(*ESTADOS.get(atual["estado"], ("medium", atual["estado"])))
 
     colA, colB = st.columns(2)
     with colA:
-        grafico_linha(dados, "temperatura", "Temperatura", "°C", limite=temp_max)
+        grafico_linha(dados, "nivel_pct", "Nível de carga", "%", dominio=[0, 100])
     with colB:
-        grafico_linha(dados, "umidade", "Umidade", "%", limite=umid_max)
-    grafico_linha(dados, "luminosidade", "Luminosidade", "lux", altura=200)
+        grafico_series(dados, POTENCIAS, "Potências", "W", altura=230)
+    colC, colD = st.columns(2)
+    with colC:
+        grafico_linha(dados, "tarifa_rs_kwh", "Tarifa", "R$/kWh", altura=200, degrau=True)
+    with colD:
+        grafico_linha(dados, "comando", "Comando fuzzy", "−100 a +100", altura=200, dominio=[-100, 100])
 
 
 with tab1:
@@ -218,17 +235,33 @@ with tab2:
     st.header("Histórico das Leituras")
     st.caption(f"{len(df)} leituras · de {df['timestamp'].min():%d/%m %H:%M} até {df['timestamp'].max():%d/%m %H:%M}")
 
-    st.subheader("🔹 Resumo Estatístico")
-    resumo = df[list(GRANDEZAS)].agg(["mean", "min", "max", "std"]).T
-    resumo.index = [f"{titulo} ({unidade})" for titulo, unidade in GRANDEZAS.values()]
-    resumo.columns = ["Média", "Mínimo", "Máximo", "Desvio padrão"]
-    st.dataframe(resumo.style.format("{:.1f}"), width="stretch")
+    st.subheader("🔹 Decisões e Trocas de Estado")
+    trocas = df[df["estado"] != df["estado"].shift()].iloc[1:]
+    if trocas.empty:
+        st.info("Nenhuma troca de estado na janela.")
+    else:
+        st.dataframe(
+            trocas[["timestamp", "estado", "comando", "tarifa_rs_kwh", "posto", "nivel_pct", "demanda_w"]]
+            .sort_values("timestamp", ascending=False),
+            width="stretch",
+            hide_index=True,
+            column_config={
+                "timestamp": st.column_config.DatetimeColumn("Horário", format="DD/MM HH:mm:ss"),
+                "estado": "Novo estado",
+                "comando": st.column_config.NumberColumn("Comando fuzzy", format="%.0f"),
+                "tarifa_rs_kwh": st.column_config.NumberColumn("Tarifa (R$/kWh)", format="%.2f"),
+                "posto": "Posto",
+                "nivel_pct": st.column_config.NumberColumn("Nível (%)", format="%.0f"),
+                "demanda_w": st.column_config.NumberColumn("Demanda (W)", format="%.1f"),
+            },
+        )
+        st.caption("A amostragem da janela pode esconder estados curtos, como PARANDO (cerca de 1 s).")
 
-    st.subheader("🔹 Distribuição das Variáveis")
-    colA, colB, colC = st.columns(3)
-    for col, (coluna, (titulo, unidade)) in zip((colA, colB, colC), GRANDEZAS.items()):
-        with col:
-            histograma(df, coluna, titulo, unidade)
+    colA, colB = st.columns(2)
+    with colA:
+        grafico_barras_estado(df)
+    with colB:
+        histograma(df, "nivel_pct", "Distribuição do nível de carga", "%")
 
     st.subheader("🔹 Dados Recebidos")
     st.dataframe(
@@ -237,132 +270,216 @@ with tab2:
         hide_index=True,
         column_config={
             "timestamp": st.column_config.DatetimeColumn("Horário", format="DD/MM/YYYY HH:mm:ss"),
-            "temperatura": st.column_config.NumberColumn("Temperatura (°C)", format="%.1f"),
-            "umidade": st.column_config.NumberColumn("Umidade (%)", format="%.1f"),
-            "luminosidade": st.column_config.NumberColumn("Luminosidade (lux)", format="%.0f"),
-            "rssi": st.column_config.NumberColumn("Wi-Fi (dBm)"),
-            "heap_livre": st.column_config.NumberColumn("Heap livre (kB)", format="%.1f"),
-            "uptime_s": st.column_config.NumberColumn("Uptime (s)"),
+            "estado": "Estado",
+            "h_m": st.column_config.NumberColumn("Altura (m)", format="%.3f"),
+            "nivel_pct": st.column_config.NumberColumn("Nível (%)", format="%.1f"),
+            "v_ms": st.column_config.NumberColumn("Velocidade (m/s)", format="%.3f"),
+            "p_subida_w": st.column_config.NumberColumn("P subida (W)", format="%.2f"),
+            "p_gerada_w": st.column_config.NumberColumn("P gerada (W)", format="%.2f"),
+            "p_usb_w": st.column_config.NumberColumn("P USB (W)", format="%.2f"),
+            "v_gen_v": st.column_config.NumberColumn("Tensão gerada (V)", format="%.1f"),
+            "frenagem_pct": st.column_config.NumberColumn("Frenagem (%)", format="%.0f"),
+            "tarifa_rs_kwh": st.column_config.NumberColumn("Tarifa (R$/kWh)", format="%.2f"),
+            "posto": "Posto",
+            "demanda_w": st.column_config.NumberColumn("Demanda (W)", format="%.1f"),
+            "comando": st.column_config.NumberColumn("Comando", format="%.0f"),
+            "hora_sim": st.column_config.NumberColumn("Hora simulada", format="%.2f"),
+            "ciclo": st.column_config.NumberColumn("Ciclos"),
+            "e_subida_j": st.column_config.NumberColumn("E subida (J)", format="%.0f"),
+            "e_gerada_j": st.column_config.NumberColumn("E gerada (J)", format="%.0f"),
+            "e_usb_j": st.column_config.NumberColumn("E USB (J)", format="%.0f"),
+            "e_aux_j": st.column_config.NumberColumn("E eletrônica (J)", format="%.0f"),
         },
     )
     st.download_button(
         "⬇️ Baixar CSV",
         df.to_csv(index=False).encode("utf-8"),
-        file_name="leituras_esp32.csv",
+        file_name="leituras_bateria.csv",
         mime="text/csv",
     )
 
 # =====================================================================
-# TAB 3 — CORRELAÇÃO
+# TAB 3 — ENERGIA
 # =====================================================================
 with tab3:
-    st.header("Correlação entre Variáveis")
+    st.header("Energia e Economia Simulada")
 
-    corr = calcular_correlacao(df)
+    resumo = resumo_energia(df)
+    ciclos = tabela_ciclos(df)
 
-    colA, colB = st.columns([1, 1])
+    col1, col2, col3, col4 = st.columns(4)
+    col1.markdown(card("Descidas concluídas", f"{resumo['ciclos']}", "", f"na janela de {janela}"), unsafe_allow_html=True)
+    rendimento = resumo["rendimento"]
+    col2.markdown(
+        card("Rendimento do ramo de potência", f"{rendimento * 100:.0f}" if rendimento else "—", "%",
+             "gerada ÷ consumida na subida (estimado: ~52 %)"),
+        unsafe_allow_html=True,
+    )
+    col3.markdown(
+        card("Entregue à USB", f"{em_wh(resumo['e_usb_j']):.3f}", "Wh", f"{resumo['e_usb_j']:.0f} J"),
+        unsafe_allow_html=True,
+    )
+    col4.markdown(
+        card("Economia simulada", reais(resumo["economia_rs"]), "", "gerada × tarifa − consumida × tarifa"),
+        unsafe_allow_html=True,
+    )
 
-    with colA:
-        st.subheader("Mapa de Calor da Correlação")
-        mapa_calor(corr)
+    st.write("")
+    st.info(
+        f"⚡ Consumo da eletrônica (mostrado à parte): {em_wh(resumo['e_aux_j']):.2f} Wh na janela, "
+        f"{reais(resumo['custo_aux_rs'])} — mais que toda a energia gerada "
+        f"({em_wh(resumo['e_gerada_j']):.3f} Wh). O protótipo demonstra o conceito, não economiza."
+    )
 
-    with colB:
-        st.subheader("Dispersão")
-        grafico_disp(df)
+    if ciclos.empty:
+        st.warning("Nenhuma descida concluída na janela.")
+    else:
+        colA, colB = st.columns([3, 2])
+        with colA:
+            grafico_barras_ciclos(ciclos)
+        with colB:
+            descidas = df[(df["estado"] == "DESCENDO") & (df["v_ms"] < 0)].assign(v_desc=lambda d: -d["v_ms"])
+            if descidas.empty:
+                st.caption("Nenhuma leitura durante descida nesta amostragem.")
+            else:
+                grafico_disp(descidas, "v_desc", "v_gen_v", "Velocidade de descida (m/s)", "Tensão gerada (V)",
+                             "Tensão gerada × velocidade", altura=260)
 
-    st.subheader("Tabela de Correlação")
-    st.dataframe(corr.style.format("{:.2f}"), width="stretch")
+        st.subheader("Descidas")
+        st.dataframe(
+            ciclos,
+            width="stretch",
+            hide_index=True,
+            column_config={
+                "ciclo": "Descida",
+                "fim": st.column_config.DatetimeColumn("Fim da descida", format="DD/MM HH:mm:ss"),
+                "e_subida_j": st.column_config.NumberColumn("Subida antes (J)", format="%.0f"),
+                "e_gerada_j": st.column_config.NumberColumn("Gerada (J)", format="%.0f"),
+                "e_usb_j": st.column_config.NumberColumn("USB (J)", format="%.0f"),
+                "tarifa_subida": st.column_config.NumberColumn("Tarifa subida", format="%.2f"),
+                "tarifa_descida": st.column_config.NumberColumn("Tarifa descida", format="%.2f"),
+                "economia_rs": st.column_config.NumberColumn("Economia (R$)", format="%.6f"),
+                "rendimento": st.column_config.NumberColumn("Gerada ÷ subida", format="%.2f"),
+            },
+        )
+        st.caption(
+            "Cada linha é uma descida, com a energia de subida consumida desde a descida anterior. "
+            "Uma descida parcial (regras R6 e R9) gera menos que os ~173 J de uma descida inteira, "
+            "e duas descidas seguidas aparecem sem subida entre elas."
+        )
 
 # =====================================================================
 # TAB 4 — LÓGICA FUZZY
 # =====================================================================
 with tab4:
-    st.header("Sistema Fuzzy de Controle do Ventilador")
+    st.header("Controlador Fuzzy (Mamdani)")
 
-    st.write("Use os controles abaixo para testar a **velocidade fuzzy** do ventilador:")
+    st.write("Mesmo controlador do firmware. Teste o **comando** para cada combinação de entradas:")
 
     ultima = df.iloc[-1]
-    col1, col2 = st.columns(2)
+    col1, col2, col3 = st.columns(3)
+    tarifa = col1.slider("Tarifa (R$/kWh)", 0.0, 2.0, float(ultima["tarifa_rs_kwh"]), step=0.05, format="%.2f", key="fuzzy_tarifa")
+    nivel = col2.slider("Nível de carga (%)", 0.0, 100.0, float(round(ultima["nivel_pct"])), step=1.0, format="%.0f", key="fuzzy_nivel")
+    demanda = col3.slider("Demanda da saída USB (W)", 0.0, 10.0, float(ultima["demanda_w"]), step=0.1, format="%.1f", key="fuzzy_demanda")
 
-    temperatura = col1.slider("Temperatura (°C)", 10.0, 45.0, float(round(ultima["temperatura"] * 2) / 2), step=0.5, format="%.1f", key="fuzzy_temperatura")
-    umidade = col2.slider("Umidade (%)", 0.0, 100.0, float(round(ultima["umidade"])), step=1.0, format="%.0f", key="fuzzy_umidade")
+    comando = calcular_comando(tarifa, nivel, demanda)
+    alvo = velocidade_alvo(comando)
 
-    ventilador_fuzzy = calcular_ventilador_fuzzy(temperatura, umidade)
+    st.subheader(f"🔍 Comando fuzzy: **{comando:+.0f}**")
+    faixa(*classificar_comando(comando))
+    if comando < -30:
+        st.caption(f"Velocidade-alvo de descida: {alvo:.3f} m/s (0,03 a 0,08 m/s).")
+    st.caption("Histerese do firmware: começa a mover com |comando| > 30 e continua enquanto |comando| > 10.")
 
-    st.subheader(f"🔍 Velocidade Fuzzy do Ventilador: **{ventilador_fuzzy:.0f} %**")
-    faixa(*classificar_ventilador(ventilador_fuzzy))
-
-    colA, colB, colC = st.columns(3)
+    colA, colB = st.columns(2)
     with colA:
-        grafico_pertinencia(curvas_pertinencia("temperatura"), "Temperatura", "°C", temperatura, ROTULOS_FUZZY)
+        grafico_pertinencia(curvas_pertinencia("tarifa"), "Tarifa", "R$/kWh", tarifa, ROTULOS_FUZZY)
+        grafico_pertinencia(curvas_pertinencia("demanda"), "Demanda da saída", "W", demanda, ROTULOS_FUZZY)
     with colB:
-        grafico_pertinencia(curvas_pertinencia("umidade"), "Umidade", "%", umidade, ROTULOS_FUZZY)
-    with colC:
-        grafico_pertinencia(curvas_pertinencia("ventilador"), "Ventilador (saída)", "% PWM", ventilador_fuzzy, ROTULOS_FUZZY)
+        grafico_pertinencia(curvas_pertinencia("nivel"), "Nível de carga", "%", nivel, ROTULOS_FUZZY)
+        grafico_pertinencia(curvas_pertinencia("comando"), "Comando (saída)", "−100 a +100", comando, ROTULOS_FUZZY)
 
-    st.write("### Como funciona o modelo fuzzy?")
-    st.write("O sistema fuzzy utiliza regras linguísticas. Cada combinação de temperatura e umidade leva a uma velocidade:")
+    st.write("### Regras")
+    disparos = {regra: grau for regra, _, grau in ativar_regras(tarifa, nivel, demanda)}
 
-    tabela_regras = (
-        pd.DataFrame(REGRAS, columns=["temperatura", "umidade", "ventilador"])
-        .replace(ROTULOS_FUZZY)
-        .pivot(index="temperatura", columns="umidade", values="ventilador")
-        .loc[["Fria", "Agradável", "Quente"], ["Seca", "Ideal", "Úmida"]]
+    def _rotulo(valor):
+        if valor is None:
+            return "qualquer"
+        if isinstance(valor, tuple):
+            return " ou ".join(ROTULOS_FUZZY[v] for v in valor)
+        return ROTULOS_FUZZY[valor]
+
+    tabela_regras = pd.DataFrame([
+        {"Regra": r, "Tarifa": _rotulo(t), "Nível": _rotulo(n), "Demanda": _rotulo(d),
+         "Ação": ROTULOS_FUZZY[a], "Disparo": disparos[r]}
+        for r, t, n, d, a in REGRAS
+    ])
+    st.dataframe(
+        tabela_regras,
+        width="stretch",
+        hide_index=True,
+        column_config={"Disparo": st.column_config.ProgressColumn("Disparo agora", min_value=0.0, max_value=1.0, format="%.2f")},
     )
-    tabela_regras.index.name = "Temperatura ↓ / Umidade →"
-    tabela_regras.columns.name = None
-    st.dataframe(tabela_regras, width="stretch")
 
-    st.write("""
-Com isso, produz uma saída contínua entre 0 e 100 % — o valor de PWM que o ESP32
-aplicaria no ventilador. A linha tracejada em cada gráfico mostra o valor atual.
-    """)
+    st.write("### Mapa do comando")
+    st.caption(f"Comando para cada tarifa e nível, com a demanda em {demanda:.1f} W. O quadrado marca as entradas atuais.")
+    mapa_comando(superficie(demanda), tarifa, nivel)
 
 # =====================================================================
-# TAB 5 — DISPOSITIVO
+# TAB 5 — CONTROLE
 # =====================================================================
 with tab5:
-    st.header("Estado do Dispositivo")
+    st.header("Controle Remoto")
 
     ultima = df.iloc[-1]
-
-    col1, col2, col3, col4 = st.columns(4)
-    col1.markdown(card("Conexão", "Online", "", "ESP32-WROOM-32 · v0.1.0"), unsafe_allow_html=True)
-    col2.markdown(
-        card("Sinal Wi-Fi", f"{ultima['rssi']:.0f}", "dBm", qualidade_wifi(ultima["rssi"])),
-        unsafe_allow_html=True,
-    )
-    col3.markdown(card("Memória livre", f"{ultima['heap_livre']:.0f}", "kB", "heap"), unsafe_allow_html=True)
-    col4.markdown(
-        card("Ligado há", formatar_uptime(ultima["uptime_s"]), "", "desde a última reinicialização"),
-        unsafe_allow_html=True,
-    )
-
-    st.write("")
     colA, colB = st.columns(2)
 
     with colA:
-        st.subheader("Controles")
-        st.caption("Simulados — nenhum comando é enviado.")
-        led = st.toggle("LED de status", value=True)
-        modo_auto = st.toggle("Ventilador em modo automático (fuzzy)", value=True)
-        pwm_manual = st.slider("Velocidade manual do ventilador (%)", 0, 100, 50, disabled=modo_auto)
-        envio = st.select_slider("Intervalo de envio das leituras", ["1 s", "5 s", "10 s", "30 s", "60 s"], value="5 s")
-        if st.button("Enviar configuração"):
-            st.toast("Configuração enviada (simulado).", icon="✅")
+        st.subheader("Comandos")
+        st.caption("Simulados — nada é enviado. No protótipo, vão ao tópico `grav/comando`.")
+        acoes = {"Automático (fuzzy)": "auto", "Subir": "subir", "Descer": "descer", "Parar": "parar", "Rearmar": "rearmar"}
+        escolha = st.radio("Modo", list(acoes), horizontal=True)
+        st.json({"acao": acoes[escolha]})
+        if st.button("Enviar comando"):
+            st.toast(f"Comando “{acoes[escolha]}” enviado (simulado).", icon="✅")
+
+        st.subheader("Tarifas")
+        st.caption("Altere na barra lateral. Mensagem retida do tópico `grav/tarifas`:")
+        st.json(tarifas)
 
     with colB:
         st.subheader("Formato da Leitura")
-        st.caption("JSON que o ESP32 deve enviar a cada leitura.")
+        st.caption("JSON que o ESP32 publica em `grav/estado` (ver `03_SOFTWARE/contrato_dados.md`).")
         st.json({
-            "timestamp": ultima["timestamp"].isoformat(),
-            "temperatura": float(ultima["temperatura"]),
-            "umidade": float(ultima["umidade"]),
-            "luminosidade": float(ultima["luminosidade"]),
-            "rssi": int(ultima["rssi"]),
-            "heap_livre": float(ultima["heap_livre"]),
-            "uptime_s": int(ultima["uptime_s"]),
+            "ts": int(ultima["timestamp"].timestamp()),
+            "estado": ultima["estado"],
+            "modo": "AUTOMATICO",
+            "h_m": float(ultima["h_m"]),
+            "nivel_pct": float(ultima["nivel_pct"]),
+            "v_ms": float(ultima["v_ms"]),
+            "p_subida_w": float(ultima["p_subida_w"]),
+            "p_gerada_w": float(ultima["p_gerada_w"]),
+            "p_usb_w": float(ultima["p_usb_w"]),
+            "v_gen_v": float(ultima["v_gen_v"]),
+            "frenagem_pct": int(ultima["frenagem_pct"]),
+            "tarifa_rs_kwh": float(ultima["tarifa_rs_kwh"]),
+            "posto": ultima["posto"],
+            "demanda_w": float(ultima["demanda_w"]),
         })
+
+    st.subheader("Proteções do firmware")
+    st.dataframe(
+        pd.DataFrame([
+            ("Velocidade de descida > 0,10 m/s", "Trava engata, frenagem 100 %, corte (K1) aberto"),
+            ("Tensão gerada > 28 V", "Frenagem 100 %"),
+            ("Corrente > 3 A com encoder parado por 500 ms", "Falha: massa travada"),
+            ("Fim de curso inesperado", "Falha"),
+            ("Botão de emergência", "Falha + corte por hardware"),
+            ("Trava não solta em 3 s", "Falha: trava presa"),
+        ], columns=["Condição", "Ação"]),
+        width="stretch",
+        hide_index=True,
+    )
 
 # =====================================================================
 # TAB 6 — MINI RELATÓRIO
@@ -370,74 +487,62 @@ with tab5:
 with tab6:
     st.header("Mini Relatório — Análise dos Resultados")
 
-    corr = calcular_correlacao(df)
-    acima = int((df["temperatura"] > temp_max).sum())
-    pct_acima = 100 * acima / len(df)
-    ventilador_agora = calcular_ventilador_fuzzy(df.iloc[-1]["temperatura"], df.iloc[-1]["umidade"])
+    resumo = resumo_energia(df)
+    trocas = df[df["estado"] != df["estado"].shift()].iloc[1:]
+    subidas = int((trocas["estado"] == "SUBINDO").sum())
+    descidas = int((trocas["estado"].isin(["PREP_DESCIDA", "DESCENDO"]) & (trocas["estado"].shift() != "PREP_DESCIDA")).sum())
+    tempo_manter = 100 * (df["estado"] == "MANTER").mean()
 
     st.markdown("""
     ## 🎯 Objetivo Geral
-    Monitorar o ambiente com um ESP32 a partir de três grandezas principais:
-    - Temperatura
-    - Umidade
-    - Luminosidade
-
-    A análise usa estatísticas, gráficos e lógica fuzzy para acompanhar o ambiente e decidir a ventilação.
+    Armazenar energia elevando uma massa de 20 kg por 1,70 m quando a tarifa está baixa e
+    liberá-la na descida, quando a tarifa está alta, alimentando uma porta USB. A decisão de
+    subir, manter ou descer é tomada por lógica fuzzy no ESP32.
     """)
 
     st.markdown("---")
 
-    st.subheader("1) Estatísticas Gerais das Leituras")
-
+    st.subheader("1) Operação na Janela")
     st.markdown(f"""
     - **Janela analisada:** `{janela}` ({len(df)} leituras)
-    - **Temperatura média:** `{df['temperatura'].mean():.1f}` °C (máx. `{df['temperatura'].max():.1f}` °C)
-    - **Umidade média:** `{df['umidade'].mean():.1f}` %
-    - **Luminosidade média:** `{df['luminosidade'].mean():.0f}` lux
-
-    A temperatura ficou acima do limite de `{temp_max:g}` °C em `{acima}` leituras (`{pct_acima:.0f}` % da janela).
+    - **Subidas iniciadas:** `{subidas}` · **descidas iniciadas:** `{descidas}`
+    - **Tempo em MANTER:** `{tempo_manter:.0f}` % da janela
+    - **Nível médio:** `{df['nivel_pct'].mean():.0f}` % (último: `{df['nivel_pct'].iloc[-1]:.0f}` %)
     """)
 
     st.markdown("---")
 
-    st.subheader("2) Correlação Entre Variáveis")
-
+    st.subheader("2) Energia")
+    rend = resumo["rendimento"]
     st.markdown(f"""
-    Principais relações observadas:
+    - **Consumida na subida:** `{resumo['e_subida_j']:.0f}` J
+    - **Gerada na descida:** `{resumo['e_gerada_j']:.0f}` J
+      (rendimento do ramo de potência: `{f'{rend * 100:.0f} %' if rend else '—'}`)
+    - **Entregue à USB:** `{resumo['e_usb_j']:.0f}` J (`{em_wh(resumo['e_usb_j']):.3f}` Wh)
+    - **Economia simulada:** `{reais(resumo['economia_rs'])}`
+    - **Consumo da eletrônica, à parte:** `{em_wh(resumo['e_aux_j']):.2f}` Wh
 
-    - **Temperatura × Umidade:** correlação {descrever_correlacao(corr.loc['Temperatura', 'Umidade'])} (`{corr.loc['Temperatura', 'Umidade']:.2f}`)
-    - **Temperatura × Luminosidade:** correlação {descrever_correlacao(corr.loc['Temperatura', 'Luminosidade'])} (`{corr.loc['Temperatura', 'Luminosidade']:.2f}`)
-    - **Umidade × Luminosidade:** correlação {descrever_correlacao(corr.loc['Umidade', 'Luminosidade'])} (`{corr.loc['Umidade', 'Luminosidade']:.2f}`)
+    Uma subida completa armazena `{E_TEORICA_J:.1f}` J (0,093 Wh). A eletrônica, com cerca de 1 W,
+    gasta isso em menos de 6 minutos: o protótipo é didático e mostra a estratégia de decisão,
+    não economia real.
     """)
 
     st.markdown("---")
 
-    st.subheader("3) Análise Fuzzy da Ventilação")
+    st.subheader("3) Lógica Fuzzy")
+    st.markdown("""
+    O controlador combina tarifa, nível de carga e demanda da saída USB em 11 regras, como:
 
-    st.markdown(f"""
-    O sistema fuzzy combina temperatura e umidade em regras linguísticas como:
+    - **Tarifa baixa + nível baixo ou médio → Subir**
+    - **Tarifa alta + nível alto + aparelho ligado → Descer**
+    - **Tarifa alta + nada ligado na USB → Manter**
 
-    - **Quente + Úmida → ventilação Alta**
-    - **Agradável + Úmida → ventilação Média**
-    - **Fria (qualquer umidade) → ventilação Baixa**
+    O comando vai de **−100 (descer)** a **+100 (subir)**:
 
-    A saída varia de **0 a 100 %**, com a classificação:
-
-    - `0 a 30` → 🟢 Baixa
-    - `30 a 60` → 🟡 Moderada
-    - `60 a 100` → 🔴 Alta
-
-    Para a última leitura, a velocidade calculada é **{ventilador_agora:.0f} %** ({classificar_ventilador(ventilador_agora)[1]}).
-    """)
-
-    st.markdown("---")
-
-    st.subheader("4) Estado do Dispositivo")
-
-    st.markdown(f"""
-    - Sinal Wi-Fi médio de `{df['rssi'].mean():.0f}` dBm ({qualidade_wifi(df['rssi'].mean()).lower()}).
-    - Memória livre mínima de `{df['heap_livre'].min():.0f}` kB na janela.
+    - `> +30` → ⬆️ começa a subir
+    - `−30 a +30` → ⏸️ mantém (com histerese de ±10 para parar)
+    - `< −30` → ⬇️ começa a descer, a 0,03–0,08 m/s
     """)
 
     st.success("Relatório gerado automaticamente com base nas leituras e cálculos do dashboard.")
-    st.caption("As leituras deste mockup são simuladas; os números acima não vêm de um ESP32 real.")
+    st.caption("As leituras são simuladas; os números acima não vêm de um ESP32 real.")
