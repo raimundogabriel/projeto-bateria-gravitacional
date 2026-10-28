@@ -55,6 +55,16 @@
   `dimensionamento.md`.
 - **Criado em:** 2026-10-28
 
+### HANDOFF-008
+- **De:** ARQUITETO
+- **Para:** DESENVOLVEDOR
+- **O quê:** Ao rodar o firmware no Wokwi, conferir se cada sequência acende
+  os LEDs como descrito em `02_ARQUITETO/circuitos/simulacao_wokwi.md` (seção
+  5) e corrigir os nomes de pinos do `diagram.json` (INC-031).
+- **Critério de pronto:** subir, descer, manter, falha e automático conferidos
+  no Wokwi; INC-031 fechada.
+- **Criado em:** 2026-10-28
+
 ## 🟢 FECHADOS (histórico)
 
 ### HANDOFF-005 — fechado em 2026-10-28

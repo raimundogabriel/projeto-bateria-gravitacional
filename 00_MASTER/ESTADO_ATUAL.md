@@ -15,6 +15,8 @@ feito fora do repositório entre 2026-10-07 e 2026-10-22)
   `02_ARQUITETO/circuitos/esquema_potencia.md`
 - [x] Diagrama de blocos → `02_ARQUITETO/circuitos/diagrama_blocos.md`
 - [x] Pinagem do ESP32 → `03_SOFTWARE/pinagem_esp32.md`
+- [x] Explicação do esquema do Wokwi com diagramas (ligações, caminho de
+  potência, diferenças para o real) → `02_ARQUITETO/circuitos/simulacao_wokwi.md`
 - [x] Firmware com máquina de estados, fuzzy, proteções e planta virtual →
   `03_SOFTWARE/firmware/wokwi/sketch.ino` (testado fora do Wokwi com pinos
   simulados)
@@ -44,6 +46,8 @@ feito fora do repositório entre 2026-10-07 e 2026-10-22)
 - Ensaios em 7 etapas (`01_FISICA/validacao_experimental.md`)
 
 ## ⚠️ ALERTAS
+- No Wokwi a emergência é só entrada de software; o corte por hardware
+  (DEC-009) só se prova na bancada — `02_ARQUITETO/circuitos/simulacao_wokwi.md`
 - O relatório v2 está atrás da eletrônica v2 (fala em 2 INA226, 22 Ω, eFLL,
   relé que "só comuta com corrente nula") — INC-026 e INC-027
 - A tabela de tarifas do firmware não trata fins de semana, que o relatório
