@@ -22,6 +22,7 @@ fuzzy quando subir, manter ou descer, e os dados vão a um painel remoto.
 | `04_AUDITORIA/` | todas | Inconsistências e questões abertas |
 | `05_DOC_ORIGINAL/` | — | Relatório original (PDF) e revisado (v2, DOCX) |
 | `logs/` | — | Fluxo de handoffs entre personas |
+| `MVP_FABLAB/` | todas | Releitura menor para fablab (5 kg, 1,0 m, motor 12 V), em avaliação |
 
 ## Números principais
 | Grandeza | Valor |

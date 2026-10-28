@@ -13,3 +13,4 @@ Perguntas que só o grupo responde. Ao responder, registre a decisão em
 | Q-006 | Onde roda o broker MQTT (notebook do grupo ou Raspberry Pi)? | Define o endereço do broker no firmware e se o painel precisa ficar ligado sozinho | Grupo | aberta |
 | Q-007 | O celular que será usado na apresentação aceita carga com tensão oscilando? | Alguns celulares cortam a carga; alternativa é luminária USB ou power bank | Grupo (testar com fonte de bancada a 9 V no buck) | aberta |
 | Q-008 | Qual o prazo de entrega do protótipo? | `00_MASTER/PROJETO.md` está sem prazo | Grupo | aberta |
+| Q-009 a Q-011 | Variante MVP para fablab: porte (5 ou 10 kg), máquinas do fablab, MVP antes ou no lugar do principal | Ver `MVP_FABLAB/00_MASTER/QUESTOES_ABERTAS.md` | Gabriel | abertas |
