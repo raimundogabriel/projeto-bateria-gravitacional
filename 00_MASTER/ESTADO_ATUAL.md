@@ -27,9 +27,9 @@ feito fora do repositório entre 2026-10-07 e 2026-10-22)
   `03_SOFTWARE/dashboard/` (HANDOFF-005 fechado)
 
 ## 🔄 EM ANDAMENTO
-- Releitura menor para fablab (MVP: 5 kg, 1,0 m, motor 12 V 37 mm, sem
-  relés), proposta em pasta separada, sem mudar o projeto principal →
-  `MVP_FABLAB/` (DEC-014 a DEC-021 propostas; aguarda Q-009)
+- Releitura menor para fablab (MVP: 6 kg de anilhas, 1,70 m, só LEDs,
+  motor 12 V 37 mm ainda em escolha, sem relés), em pasta separada, sem mudar
+  o projeto principal → `MVP_FABLAB/` (DEC-014 a DEC-022; Q-012 aberta)
 - Rodar o firmware dentro do Wokwi e conferir o `diagram.json` — responsável:
   DESENVOLVEDOR — prazo: [a definir]
 - Contrato de dados MQTT (`grav/*`) → `03_SOFTWARE/contrato_dados.md` —

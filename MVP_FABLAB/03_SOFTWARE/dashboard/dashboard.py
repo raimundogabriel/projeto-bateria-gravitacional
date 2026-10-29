@@ -11,7 +11,8 @@ from src.fuzzy_bateria import (
     superficie,
     velocidade_alvo,
 )
-from src.load_data import FONTE_SIMULADOR, FONTES, JANELAS, obter_leituras
+from src.load_data import FONTE_CSV, FONTE_ESP32, FONTE_SIMULADOR, FONTES, JANELAS, obter_leituras
+from src.mqtt_esp32 import ColetorESP32
 from src.simulador import CURSO, DIA_SIMULADO_S, POSTOS, TARIFAS_PADRAO
 from src.visualizacao import (
     grafico_barras_ciclos,
@@ -106,6 +107,8 @@ def faixa(nivel, texto):
 
 
 def hora_simulada(hora):
+    if pd.isna(hora):
+        return "--:--"
     h = int(hora)
     return f"{h:02d}:{int((hora - h) * 60):02d}"
 
@@ -114,50 +117,99 @@ def reais(valor):
     return f"R$ {valor:.6f}".replace(".", ",")
 
 
+@st.cache_resource(max_entries=1, show_spinner=False)
+def conectar_esp32(broker, porta, base):
+    """Um coletor MQTT por servidor do painel, vivo entre as recargas da página."""
+    return ColetorESP32(broker, porta, base)
+
+
 # =====================================================================
 # BARRA LATERAL
 # =====================================================================
+coletor = None
 with st.sidebar:
     st.title("🔋 Bateria Gravitacional")
-    st.caption("MVP fablab · 5 kg · 1,00 m")
+    st.caption("MVP fablab · 6 kg · 1,70 m · parafusadeira 14,4 V")
 
     fonte = st.radio("Fonte de dados", FONTES)
     janela = st.selectbox("Janela de tempo", list(JANELAS), index=1)
 
+    if fonte == FONTE_ESP32:
+        st.divider()
+        st.subheader("Broker MQTT")
+        broker = st.text_input("Endereço", "localhost", help="localhost se o Mosquitto roda neste computador; "
+                               "broker.hivemq.com para o Wokwi")
+        porta = st.number_input("Porta", 1, 65535, 1883)
+        base = st.text_input("Tópico base", "grav", help="Igual a TOPICO_BASE no sketch.ino")
+        coletor = conectar_esp32(broker.strip(), int(porta), base.strip())
+        icone, texto = coletor.situacao()
+        st.caption(f"{icone} {texto}")
+
     st.divider()
-    ao_vivo = st.toggle("Atualização automática", value=True, disabled=fonte != FONTE_SIMULADOR)
+    ao_vivo = st.toggle("Atualização automática", value=True, disabled=fonte == FONTE_CSV)
     intervalo = st.slider("Intervalo de atualização (s)", 2, 30, 5, disabled=not ao_vivo)
 
     st.divider()
     st.subheader("Tarifas (R$/kWh)")
-    st.caption("No protótipo, vão ao ESP32 pelo tópico `grav/tarifas`.")
     tarifas = {
         posto: st.number_input(POSTOS[posto], 0.0, 2.0, valor, step=0.05, format="%.2f", key=f"tarifa_{posto}")
         for posto, valor in TARIFAS_PADRAO.items()
     }
+    if coletor is not None:
+        # Mensagem retida: reenvia quando mudam e quando o painel conecta num broker novo
+        chave = (coletor.broker, coletor.porta, coletor.base, tuple(tarifas.values()))
+        if st.session_state.get("tarifas_enviadas") != chave and coletor.enviar_tarifas(tarifas):
+            st.session_state["tarifas_enviadas"] = chave
+        enviadas = st.session_state.get("tarifas_enviadas") == chave
+        st.caption("Enviadas ao ESP32 (`grav/tarifas`, retida)." if enviadas
+                   else "Serão enviadas ao ESP32 quando o broker conectar.")
+    else:
+        st.caption("No protótipo, vão ao ESP32 pelo tópico `grav/tarifas`.")
 
     st.divider()
-    st.caption(
-        f"Simulador — nenhum ESP32 conectado. O dia de tarifas é acelerado: "
-        f"um dia inteiro a cada {DIA_SIMULADO_S // 60} minutos."
-    )
+    if fonte == FONTE_SIMULADOR:
+        st.caption(
+            f"Simulador — nenhum ESP32 conectado. O dia de tarifas é acelerado: "
+            f"um dia inteiro a cada {DIA_SIMULADO_S // 60} minutos."
+        )
+    elif fonte == FONTE_ESP32:
+        st.caption("Leituras do ESP32, uma por segundo, guardadas enquanto o painel estiver aberto (até 24 h).")
 
-atualizar_a_cada = intervalo if (ao_vivo and fonte == FONTE_SIMULADOR) else None
+atualizar_a_cada = intervalo if (ao_vivo and fonte != FONTE_CSV) else None
 
 # =====================================================================
 # TÍTULO
 # =====================================================================
 st.title("Bateria Gravitacional — Painel Remoto (MVP fablab)")
-st.markdown(
-    "<div class='mock-aviso'>🧪 <b>Simulação</b> — planta virtual de 5 kg e 1,00 m, igual à do firmware do MVP. "
-    "A conexão com o ESP32 (MQTT <code>grav/*</code>) entra em <code>src/load_data.py</code>.</div>",
-    unsafe_allow_html=True,
-)
+if fonte == FONTE_ESP32:
+    st.markdown(
+        f"<div class='mock-aviso'>📡 <b>ESP32</b> — leituras do tópico <code>{coletor.topico('estado')}</code> "
+        f"em <code>{coletor.broker}</code>. Os comandos da aba Controle vão para o ESP32 de verdade.</div>",
+        unsafe_allow_html=True,
+    )
+else:
+    st.markdown(
+        "<div class='mock-aviso'>🧪 <b>Simulação</b> — planta virtual de 6 kg e 1,70 m com a parafusadeira de 14,4 V, igual à do firmware do MVP. "
+        "Para ver o ESP32, escolha a fonte “ESP32 (MQTT)” (passo a passo em <code>MVP_FABLAB/DIY/</code>).</div>",
+        unsafe_allow_html=True,
+    )
 
 # =====================================================================
 # CARREGAR DADOS
 # =====================================================================
-df = obter_leituras(fonte, janela, tarifas)
+df = obter_leituras(fonte, janela, tarifas, coletor)
+
+if df.empty:
+    @st.fragment(run_every=2)
+    def aguardar_esp32():
+        icone, texto = coletor.situacao()
+        st.info(f"{icone} {texto}\n\nO painel abre sozinho quando chegar a primeira leitura.")
+        st.caption("Não chega nada? Veja `MVP_FABLAB/DIY/04_problemas_comuns.md`.")
+        if not obter_leituras(fonte, janela, tarifas, coletor).empty:
+            st.rerun()
+
+    aguardar_esp32()
+    st.stop()
 
 # =====================================================================
 # TABS DO DASHBOARD
@@ -177,11 +229,15 @@ tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
 # =====================================================================
 @st.fragment(run_every=atualizar_a_cada)
 def painel_tempo_real():
-    dados = obter_leituras(fonte, janela, tarifas)
+    dados = obter_leituras(fonte, janela, tarifas, coletor)
+    if dados.empty:
+        st.warning("Nenhuma leitura do ESP32 na janela escolhida.")
+        return
     atual = dados.iloc[-1]
 
+    rotulo_hora = "hora do ESP32" if fonte == FONTE_ESP32 else "hora simulada"
     st.caption(
-        f"Última leitura: {atual['timestamp']:%d/%m/%Y %H:%M:%S} · hora simulada {hora_simulada(atual['hora_sim'])}"
+        f"Última leitura: {atual['timestamp']:%d/%m/%Y %H:%M:%S} · {rotulo_hora} {hora_simulada(atual['hora_sim'])}"
         + (f" · atualiza a cada {atualizar_a_cada} s" if atualizar_a_cada else " · atualização pausada")
     )
 
@@ -313,7 +369,7 @@ with tab3:
     rendimento = resumo["rendimento"]
     col2.markdown(
         card("Rendimento do ramo de potência", f"{rendimento * 100:.0f}" if rendimento else "—", "%",
-             "gerada ÷ consumida na subida (estimado: ~10 %)"),
+             "gerada ÷ consumida na subida (estimado: ~9 %)"),
         unsafe_allow_html=True,
     )
     col3.markdown(
@@ -365,7 +421,7 @@ with tab3:
         )
         st.caption(
             "Cada linha é uma descida, com a energia de subida consumida desde a descida anterior. "
-            "Uma descida parcial (regras R6 e R9) gera menos que os ~14,6 J de uma descida inteira, "
+            "Uma descida parcial (regras R6 e R9) gera menos que os ~9,9 J de uma descida inteira, "
             "e duas descidas seguidas aparecem sem subida entre elas."
         )
 
@@ -389,7 +445,7 @@ with tab4:
     st.subheader(f"🔍 Comando fuzzy: **{comando:+.0f}**")
     faixa(*classificar_comando(comando))
     if comando < -30:
-        st.caption(f"Velocidade-alvo de descida: {alvo:.3f} m/s (0,02 a 0,05 m/s).")
+        st.caption(f"Velocidade-alvo de descida: {alvo:.3f} m/s (0,10 a 0,18 m/s).")
     st.caption("Histerese do firmware: começa a mover com |comando| > 30 e continua enquanto |comando| > 10.")
 
     colA, colB = st.columns(2)
@@ -437,12 +493,36 @@ with tab5:
 
     with colA:
         st.subheader("Comandos")
-        st.caption("Simulados — nada é enviado. No protótipo, vão ao tópico `grav/comando`.")
+        if coletor is None:
+            st.caption("Simulados — nada é enviado. Com a fonte “ESP32 (MQTT)”, vão ao tópico `grav/comando`.")
+        else:
+            st.caption(f"Enviados ao ESP32 pelo tópico `{coletor.topico('comando')}`. "
+                       "Subir, descer e parar põem o ESP32 em modo manual; “Automático” devolve ao fuzzy.")
         acoes = {"Automático (fuzzy)": "auto", "Subir": "subir", "Descer": "descer", "Parar": "parar", "Rearmar": "rearmar"}
         escolha = st.radio("Modo", list(acoes), horizontal=True)
         st.json({"acao": acoes[escolha]})
+
+        def enviar(rotulo, **campos):
+            if coletor is None:
+                st.toast(f"{rotulo} enviado (simulado).", icon="✅")
+            elif coletor.comandar(**campos):
+                st.toast(f"{rotulo} enviado ao ESP32.", icon="✅")
+            else:
+                st.toast("Sem conexão com o broker: nada foi enviado.", icon="⚠️")
+
         if st.button("Enviar comando"):
-            st.toast(f"Comando “{acoes[escolha]}” enviado (simulado).", icon="✅")
+            enviar(f"Comando “{acoes[escolha]}”", acao=acoes[escolha])
+
+        st.subheader("Demanda e hora (testes)")
+        st.caption("A demanda do painel soma com a chave do GPIO 27 (vale a maior). "
+                   "A hora forçada serve para testar o fuzzy fora do horário de ponta; −1 volta à hora do NTP.")
+        c1, c2 = st.columns(2)
+        demanda_painel = c1.number_input("Demanda (W)", 0.0, 10.0, 0.0, step=0.5)
+        if c1.button("Enviar demanda"):
+            enviar(f"Demanda de {demanda_painel:.1f} W", demanda_w=demanda_painel)
+        hora_teste = c2.number_input("Hora (h)", -1.0, 23.5, -1.0, step=1.0)
+        if c2.button("Enviar hora"):
+            enviar("Hora do NTP" if hora_teste < 0 else f"Hora {hora_teste:.0f} h", hora=hora_teste)
 
         st.subheader("Tarifas")
         st.caption("Altere na barra lateral. Mensagem retida do tópico `grav/tarifas`:")
@@ -450,33 +530,44 @@ with tab5:
 
     with colB:
         st.subheader("Formato da Leitura")
-        st.caption("JSON que o ESP32 publica em `grav/estado` (ver `03_SOFTWARE/contrato_dados.md`).")
-        st.json({
-            "ts": int(ultima["timestamp"].timestamp()),
-            "estado": ultima["estado"],
-            "modo": "AUTOMATICO",
-            "h_m": float(ultima["h_m"]),
-            "nivel_pct": float(ultima["nivel_pct"]),
-            "v_ms": float(ultima["v_ms"]),
-            "p_subida_w": float(ultima["p_subida_w"]),
-            "p_gerada_w": float(ultima["p_gerada_w"]),
-            "p_leds_w": float(ultima["p_leds_w"]),
-            "v_gen_v": float(ultima["v_gen_v"]),
-            "frenagem_pct": int(ultima["frenagem_pct"]),
-            "tarifa_rs_kwh": float(ultima["tarifa_rs_kwh"]),
-            "posto": ultima["posto"],
-            "demanda_w": float(ultima["demanda_w"]),
-        })
+        if coletor is not None and coletor.ultimo_json:
+            st.caption(f"Última mensagem recebida em `{coletor.topico('estado')}`:")
+            st.json(coletor.ultimo_json)
+        else:
+            st.caption("JSON que o ESP32 publica em `grav/estado` a cada 1 s (exemplo com a última leitura):")
+            st.json({
+                "estado": ultima["estado"],
+                "modo": "AUTOMATICO",
+                "h_m": float(ultima["h_m"]),
+                "nivel_pct": float(ultima["nivel_pct"]),
+                "v_ms": float(ultima["v_ms"]),
+                "p_subida_w": float(ultima["p_subida_w"]),
+                "p_gerada_w": float(ultima["p_gerada_w"]),
+                "p_leds_w": float(ultima["p_leds_w"]),
+                "v_gen_v": float(ultima["v_gen_v"]),
+                "frenagem_pct": int(ultima["frenagem_pct"]),
+                "tarifa_rs_kwh": float(ultima["tarifa_rs_kwh"]),
+                "posto": ultima["posto"],
+                "demanda_w": float(ultima["demanda_w"]),
+                "comando": float(ultima["comando"]),
+                "hora": float(ultima["hora_sim"]),
+                "ciclo": int(ultima["ciclo"]),
+                "e_subida_j": float(ultima["e_subida_j"]),
+                "e_gerada_j": float(ultima["e_gerada_j"]),
+                "e_leds_j": float(ultima["e_leds_j"]),
+                "e_aux_j": float(ultima["e_aux_j"]),
+            })
+            st.caption("O firmware manda também `ponte`, `hora_valida`, `i_a` (corrente de subida) e `motivo` da falha.")
 
     st.subheader("Proteções do firmware")
     st.dataframe(
         pd.DataFrame([
-            ("Velocidade > 0,07 m/s", "Falha: lingueta engata, frenagem 100 %, ponte em CURTO"),
-            ("Tensão gerada > 14 V", "Falha (a TVS de 15 V protege o barramento)"),
-            ("Corrente de subida > 1,5 A por 500 ms", "Falha: massa travada"),
+            ("Velocidade > 0,30 m/s", "Falha: lingueta engata, frenagem 100 %, ponte em CURTO"),
+            ("Tensão gerada > 7 V", "Falha (a TVS de 8,2 V protege o barramento)"),
+            ("Corrente de subida > 3,0 A (na fonte) por 500 ms", "Falha: massa travada"),
             ("Fim de curso inesperado", "Falha"),
             ("Botão de emergência", "Falha + corte do 12V_POT por hardware (motor e servo)"),
-            ("ESP32 travado ou desligado", "Ponte LIVRE: a carga fixa de 120 Ω limita a descida a ~0,05 m/s"),
+            ("ESP32 travado ou desligado", "Ponte LIVRE: a carga fixa de 5,6 Ω limita a descida a ~0,19 m/s (0,11–0,27)"),
             ("Trava não solta em 3 s", "Falha: trava presa"),
         ], columns=["Condição", "Ação"]),
         width="stretch",
@@ -497,7 +588,7 @@ with tab6:
 
     st.markdown("""
     ## 🎯 Objetivo Geral
-    Armazenar energia elevando uma massa de 5 kg por 1,00 m quando a tarifa está baixa e
+    Armazenar energia elevando 6 kg de anilhas por 1,70 m quando a tarifa está baixa e
     liberá-la na descida, quando a tarifa está alta, acendendo os LEDs de nível. A decisão de
     subir, manter ou descer é tomada por lógica fuzzy no ESP32.
     """)
@@ -524,8 +615,8 @@ with tab6:
     - **Economia simulada:** `{reais(resumo['economia_rs'])}`
     - **Consumo da eletrônica, à parte:** `{em_wh(resumo['e_aux_j']):.2f}` Wh
 
-    Uma subida completa armazena `{E_TEORICA_J:.1f}` J (0,0136 Wh). A eletrônica, com cerca de 0,8 W,
-    gasta isso em cerca de 1 minuto: o MVP é didático e mostra a estratégia de decisão,
+    Uma subida completa armazena `{E_TEORICA_J:.1f}` J (0,0278 Wh). A eletrônica, com cerca de 0,8 W,
+    gasta isso em pouco mais de 2 minutos: o MVP é didático e mostra a estratégia de decisão,
     não economia real.
     """)
 
@@ -543,7 +634,7 @@ with tab6:
 
     - `> +30` → ⬆️ começa a subir
     - `−30 a +30` → ⏸️ mantém (com histerese de ±10 para parar)
-    - `< −30` → ⬇️ começa a descer, a 0,02–0,05 m/s
+    - `< −30` → ⬇️ começa a descer, a 0,10–0,18 m/s
     """)
 
     st.success("Relatório gerado automaticamente com base nas leituras e cálculos do dashboard.")

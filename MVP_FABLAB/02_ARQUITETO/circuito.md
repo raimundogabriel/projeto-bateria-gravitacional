@@ -8,19 +8,24 @@ alta impedância, e esse terminal vira a saída do gerador por um diodo. Isso
 elimina K1, K2, K4 e o módulo de relés (DEC-017).
 
 ## Tensões
-- Fonte 12 V 3 A chaveada.
-- 12V_POT: 12 V depois da emergência (IBT-2 e servo).
+- Fonte 12 V **5 A** chaveada (a subida puxa ~5 A no motor, ~1,3 A da fonte;
+  a folga é para a partida e para o caso de travar).
+- 12V_POT: 12 V depois da emergência (IBT-2 e servo). O motor é o da
+  parafusadeira GSR 1440-LI, de **14,4 V** (DEC-026), ligado direto nos
+  terminais (o gatilho sai). O firmware limita o PWM a 50 % (`PWM_MAX =
+  128`) para a subida nunca passar de ~0,23 m/s.
 - 5V_LOG: LM2596 nº 1, antes da emergência (ESP32 continua ligado para
   avisar e receber o rearme). Durante o desenvolvimento, o ESP32 pode vir só
   da USB do notebook.
 - 5V_SERVO: LM2596 nº 2, depois da emergência.
-- GEN: barramento gerado, 0 a ~11 V na descida (214 V por m/s de massa).
+- GEN: barramento gerado, 0 a ~4 V na descida (21,8 V por m/s de massa),
+  até ~6,6 V no limite de 0,30 m/s. Corrente de ~0,7 A (0,4 a 1,0 A).
 
 ## Diagrama de ligações
 
 ```mermaid
 flowchart LR
-    PSU["Fonte 12 V 3 A"] --> FUS["Fusível 3 A"]
+    PSU["Fonte 12 V 5 A"] --> FUS["Fusível 5 A"]
     FUS --> BUCK1["LM2596 nº 1<br/>5V_LOG"]
     BUCK1 --> ESP["ESP32 DevKit V1"]
     FUS --> EM["Emergência NF<br/>(cogumelo)"]
@@ -31,14 +36,14 @@ flowchart LR
     INA1 --> DS["Diodo 1N5822<br/>(bloqueia retorno)"]
     DS --> IBT["IBT-2 B+"]
     POT -.divisor 10k/3k3.-> ESP
-    IBT -->|M+| MOT["Motorredutor 12 V<br/>1:90 + encoder"]
+    IBT -->|"M+ (PWM ≤ 50 %)"| MOT["Parafusadeira GSR 1440-LI<br/>motor 14,4 V + redutor ~1:42"]
     IBT -->|M−| MOT
     MOT -->|"M− na descida"| DG["Diodo 1N5822"]
     DG --> INA2["INA219 nº 2<br/>0x41, gerado"]
-    INA2 --> GEN["Nó GEN<br/>470 µF + TVS 15 V"]
-    GEN --> FIX["Carga fixa 120 Ω 2 W<br/>(sempre ligada)"]
-    GEN --> FR["Frenagem 22 Ω 5 W<br/>+ MOSFET D4184"]
-    GEN --> LEDS["3 LEDs de nível<br/>~2 V / ~6 V / ~10 V"]
+    INA2 --> GEN["Nó GEN<br/>470 µF + TVS 8,2 V"]
+    GEN --> FIX["Carga fixa 5,6 Ω 10 W<br/>(sempre ligada)"]
+    GEN --> FR["Frenagem 2,2 Ω 10 W<br/>+ MOSFET D4184"]
+    GEN --> LEDS["3 LEDs de nível<br/>~2 V / ~2,6 V / ~3,8 V"]
     ESP -->|"GPIO 16/17 PWM<br/>18 R_EN, 13 L_EN"| IBT
     ESP -->|GPIO 19 PWM| FR
     ESP -->|GPIO 4 50 Hz| SERVO
@@ -69,29 +74,40 @@ stateDiagram-v2
 
 | Modo | O que acontece | Quando |
 |------|----------------|--------|
-| LIVRE | Meias-pontes em alta impedância. Se a massa descer, o gerador fecha o circuito pelo diodo de corpo do lado baixo de M+ (~0,7 V a mais) e pela carga fixa: desce sozinha a 0,04–0,06 m/s | Boot (pull-down de 10 kΩ nos dois EN), ESP32 travado. A lingueta normalmente segura antes disso |
+| LIVRE | Meias-pontes em alta impedância. Se a massa descer, o gerador fecha o circuito pelo diodo de corpo do lado baixo de M+ (~0,7 V a mais) e pela carga fixa: desce sozinha a ~0,19 m/s (0,11 a 0,27) | Boot (pull-down de 10 kΩ nos dois EN), ESP32 travado. A lingueta normalmente segura antes disso |
 | SUBIR | PWM no M+, M− no GND. O diodo do GEN não conduz (M− ≈ 0 V) | Subida |
 | GERAR | M+ no GND pelo lado baixo; M− solto, só sai pelo diodo para o GEN. A frenagem em PWM define a velocidade | Descida |
-| CURTO | Os dois lados baixos ligados: o motor em curto freia a massa até quase parar (< 0,002 m/s) | Parar, falha, segurar enquanto o servo mexe na lingueta |
+| CURTO | Os dois lados baixos ligados: o motor em curto freia a massa até quase parar (~0,006 m/s) | Parar, falha, segurar enquanto o servo mexe na lingueta |
 
 **Por que o diodo em série no B+ do IBT-2:** acima de ~12,7 V no M−, o diodo
 de corpo do lado alto de M− conduziria para o B+. Sem o diodo em série, essa
 corrente chegaria ao 12V_POT, ao servo e ao divisor da emergência (que
-leria "solta" mesmo com o botão apertado). Com o diodo, ela só carrega os
-capacitores do próprio IBT-2.
+leria "solta" mesmo com o botão apertado). Com este motor a descida gera
+no máximo ~6,6 V, então isso só aconteceria girando o motor muito acima do
+previsto; o diodo fica como proteção barata.
+
+**Capacitor de 1.000 µF 25 V no B+ do IBT-2** (depois do diodo): na subida o
+motor puxa pulsos de ~5 A no ritmo do PWM, acima dos 3,2 A que o INA219 nº 1
+mede. O capacitor alisa os pulsos e o INA219 lê a média (~1,3 A), que é o
+que a proteção de massa travada compara com `I_TRAVADO`.
 
 ## Barramento gerado (GEN)
 M− → 1N5822 → INA219 nº 2 (high-side) → nó GEN com:
-- 470 µF 25 V + 100 nF; TVS SMBJ15A (conduz acima de ~16,7 V).
-- **Carga fixa** 120 Ω 2 W, sempre ligada: limita a descida mesmo sem ESP32.
-- **Frenagem** 22 Ω 5 W em série com módulo MOSFET D4184 (GPIO 19, PWM
-  5 kHz), 1N5819 em antiparalelo. Mais PWM = mais freio = descida mais lenta
+- 470 µF 25 V + 100 nF; TVS P6KE8.2A (com fios; ou SMBJ7.0A em SMD),
+  começa a conduzir perto de 7,8 V, acima do limite de falha de 7 V.
+- **Carga fixa** 5,6 Ω 10 W, sempre ligada: limita a descida a ~0,19 m/s
+  (0,11 a 0,27) mesmo sem ESP32.
+- **Frenagem** 2,2 Ω 10 W em série com módulo MOSFET D4184 (GPIO 19, PWM
+  5 kHz), 1N5822 em antiparalelo (a corrente chega a ~1 A). Mais PWM = mais freio = descida mais lenta
   (mesma convenção do projeto principal).
-- **LEDs de nível (sem software):** verde com 1 kΩ (acende acima de ~2 V);
-  amarelo com Zener 4,7 V + 1 kΩ (~6,5 V); vermelho com Zener 8,2 V + 1 kΩ
-  (~10 V, ponto de projeto).
+- **LEDs de nível (sem software), cada um com 220 Ω em série:** verde
+  sozinho (acende acima de ~2 V, 0,09 m/s); amarelo com 1 diodo 1N4148 em
+  série (~2,6 V, 0,12 m/s); vermelho com 3 diodos 1N4148 em série (~3,8 V,
+  0,17 m/s; a 0,18 m/s, ponto de projeto, os 3 acendem). Os limiares são
+  baixos porque o motor 550 com o redutor de ~1:42 gera pouca tensão por
+  velocidade (C-107).
 
-Valores de 120 Ω e 22 Ω são o ponto de partida de C-109; o ensaio 4 e o 5
+Valores de 5,6 Ω e 2,2 Ω são o ponto de partida de C-109; o ensaio 4 e o 5
 decidem os finais.
 
 ## Trava
@@ -109,14 +125,14 @@ não segura a posição (servos analógicos soltam; alguns digitais não).
   rompido = acionado.
 - Pull-down de 10 kΩ em R_EN e L_EN.
 - Watchdog do ESP32 ligado.
-- Fusível 3 A retardado na saída da fonte.
+- Fusível 5 A retardado na saída da fonte.
 
 ## Sensores
 | Peça | Ligação | Observação |
 |------|---------|------------|
-| Encoder Hall do motor | VCC 3,3 V; A/B no GPIO 32/33 com pull-up 4,7 kΩ a 3,3 V | Alimentado em 3,3 V para a saída não passar de 3,3 V; conferir que o modelo aceita (a maioria aceita 3,3–5 V) |
+| Encoder LPD3806-600BM no eixo do tambor | VCC 5 V (5V_LOG); A/B (saída coletor aberto NPN) no GPIO 32/33 com pull-up 4,7 kΩ a **3,3 V** | O motor da parafusadeira não tem encoder. Com coletor aberto e pull-up em 3,3 V, o sinal nunca passa de 3,3 V |
 | INA219 nº 1 (subida) | I²C 0x40, high-side no 12V_POT antes do diodo do B+ | Shunt original 0,1 Ω (até 3,2 A, 26 V) |
-| INA219 nº 2 (gerado) | I²C 0x41 (jumper A0), high-side no GEN | Mede tensão e corrente geradas |
+| INA219 nº 2 (gerado) | I²C 0x41 (jumper A0), high-side no GEN | Mede tensão e corrente geradas (até ~1 A: calibração padrão de 3,2 A) |
 
 ## O que fica igual ao projeto principal
 Fins de curso NF, emergência cogumelo, IBT-2, MOSFET D4184, ESP32, encoder em

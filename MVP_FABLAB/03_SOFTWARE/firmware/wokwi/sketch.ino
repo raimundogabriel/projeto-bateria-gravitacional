@@ -2,9 +2,13 @@
 //
 // Mesma estrutura do firmware do projeto principal
 // (03_SOFTWARE/firmware/wokwi/sketch.ino), adaptada ao MVP:
-// 5 kg, 1,00 m, motorredutor 12 V 1:90, sem reles (o IBT-2 com R_EN e L_EN
-// separados faz a troca subir/gerar, DEC-017), trava por servo (DEC-019),
-// 2x INA219 (DEC-018), hora por NTP e sem LCD (DEC-021).
+// 6 kg, 1,70 m, parafusadeira Bosch GSR 1440-LI inteira (motor 550 de 14,4 V
+// + redutor ~1:42 na 1a marcha, sem a trava Auto-Lock, DEC-026) com o PWM
+// limitado a 50 % da fonte de 12 V, cordao direto num tambor de 30 mm sem
+// talha (DEC-025), encoder LPD3806 no eixo do tambor, sem reles (o IBT-2 com R_EN e L_EN separados faz a troca
+// subir/gerar, DEC-017), trava por servo (DEC-019),
+// 2x INA219 (DEC-018), hora por NTP e sem LCD (DEC-021), saida so com
+// LEDs (DEC-022).
 //
 // Com SIMULACAO 1 (Wokwi), a massa e o gerador viram uma "planta virtual"
 // calculada no codigo, o INA219 da subida vira um potenciometro e os LEDs de
@@ -13,13 +17,22 @@
 // Comandos pelo Monitor Serial (115200):
 //   a = automatico (fuzzy)   s = subir   d = descer   p = parar   r = rearme
 //   h19 = forca a hora em 19 h (teste do fuzzy)   hx = volta a hora do NTP
-//   w3 = demanda de 3 W vinda do painel (no real, grav/comando)
+//   w3 = demanda de 3 W vinda do painel (o painel manda pelo MQTT)
+//
+// Painel: o estado vai por MQTT a cada 1 s para <TOPICO_BASE>/estado e os
+// comandos chegam por <TOPICO_BASE>/comando e <TOPICO_BASE>/tarifas
+// (passo a passo em MVP_FABLAB/DIY/).
 
 #define SIMULACAO 1
 
 #include <Wire.h>
 #include <WiFi.h>
 #include <time.h>
+#include <PubSubClient.h>
+#if !SIMULACAO
+#include <Adafruit_INA219.h>
+#include <ESP32Encoder.h>
+#endif
 
 // ---------- pinos (iguais ao circuito real, MVP_FABLAB/03_SOFTWARE/pinagem_mvp.md) ----------
 const uint8_t PIN_SERVO = 4;      // servo da lingueta (50 Hz)
@@ -35,62 +48,76 @@ const uint8_t PIN_ENC_A = 32;
 const uint8_t PIN_ENC_B = 33;
 const uint8_t PIN_EMERG = 34;     // ALTO = emergencia solta (12V_POT presente)
 #if SIMULACAO
-const uint8_t PIN_POT_CORRENTE = 35;  // no lugar do INA219 n. 1 (0 a 3 A)
+const uint8_t PIN_POT_CORRENTE = 35;  // no lugar do INA219 n. 1 (0 a 5 A)
 const uint8_t PIN_LED_VERDE = 23;     // so Wokwi: no real os LEDs ficam direto no GEN
 const uint8_t PIN_LED_AMARELO = 14;
 const uint8_t PIN_LED_VERMELHO = 2;
 #endif
 
-// ---------- rede (hora por NTP, DEC-021) ----------
-#if SIMULACAO
+// ---------- rede: hora por NTP (DEC-021) e painel por MQTT ----------
+// No Wokwi: "Wokwi-GUEST", sem senha, e um broker publico. No fablab: a rede
+// do fablab (ou o roteador do celular) e o IP do notebook que roda o
+// Mosquitto e o painel (MVP_FABLAB/DIY/03_painel_mqtt.md).
 const char *WIFI_SSID = "Wokwi-GUEST";
 const char *WIFI_SENHA = "";
-#else
-const char *WIFI_SSID = "fablab";      // trocar pela rede do fablab
-const char *WIFI_SENHA = "senha";
-#endif
+const char *MQTT_BROKER = "broker.hivemq.com";
+const uint16_t MQTT_PORTA = 1883;
+const char *TOPICO_BASE = "grav-mvp-fablab";  // broker publico: um nome so seu; Mosquitto do notebook: "grav"
 const long FUSO_S = -3 * 3600;         // horario de Brasilia
 
 // ---------- parametros do MVP (MVP_FABLAB/01_FISICA) ----------
-const float MASSA = 5.0;           // kg (DEC-014)
+const float MASSA = 6.0;           // kg de anilhas (DEC-026)
 const float G = 9.81;
-const float CURSO = 1.00;          // m, posicao do fim de curso superior
+const float CURSO = 1.70;          // m, posicao do fim de curso superior
 const float FOLGA_TOPO = 0.01;     // m de folga mecanica acima dele (alivio da trava)
-const float V_SUBIDA = 0.03;       // m/s (C-108)
-const float V_LIMITE = 0.07;       // m/s, acima disso e falha
-const float V_ALVO_MIN = 0.02;     // m/s (C-107)
-const float V_ALVO_MAX = 0.05;     // m/s
-const float KE_MASSA = 214.0;      // V por m/s de massa (Ke 0,0119 x 2 x 90 / 0,010)
-const float V_GEN_MAX = 14.0;      // V (TVS de 15 V)
-const float I_TRAVADO = 1.5;       // A
+const float V_SUBIDA = 0.10;       // m/s (C-108)
+const float V_LIMITE = 0.30;       // m/s, acima disso e falha
+const float V_ALVO_MIN = 0.10;     // m/s (C-107): LED verde
+const float V_ALVO_MAX = 0.18;     // m/s: os 3 LEDs
+const float KE_MASSA = 21.8;       // V por m/s de massa (Ke 0,0078 x 42 / 0,015), estimado ate o ensaio 0
+const float V_GEN_MAX = 7.0;       // V (TVS de 8,2 V)
+const float I_TRAVADO = 3.0;       // A medidos na fonte (C-108)
 const float ALIVIO_TRAVA = 0.003;  // m que a massa sobe para soltar a lingueta
-const float MM_POR_PULSO = 0.00793;// Hall 11 pulsos x4 x 90, tambor 20 mm, talha 2:1
+const float MM_POR_PULSO = 0.0393; // LPD3806 600 pulsos x4 no eixo do tambor de 30 mm, sem talha
 const float DEMANDA_CHAVE = 5.0;   // W quando a chave de demanda esta ligada
-const int PWM_SUBIDA = 184;        // ~72 %: 0,03 m/s com 12 V (C-108)
-const int PWM_ALIVIO = 140;        // ~55 %: sobe os 3 mm devagar
+const int PWM_MAX = 128;           // 50 % de 12 V: a subida nunca passa de ~0,23 m/s
+const int PWM_SUBIDA = 68;         // ~27 %: 0,10 m/s (C-108)
+const int PWM_ALIVIO = 35;         // ~14 %: sobe os 3 mm devagar
+const float V_APROXIMA = 0.03;     // m/s nos ultimos 5 cm antes do topo
+const int PWM_APROXIMA = 35;       // ~14 %: 0,03 m/s
+const float K_SUBIDA = 300;        // ganho do PI da subida (PWM por m/s de erro)
+const float K_DESCIDA = 0.6;       // ganho do PI da frenagem (por m/s de erro, a cada 50 ms)
 const int SERVO_ENGATADA = 20;     // graus; calibrar no ensaio 3
 const int SERVO_SOLTA = 80;        // graus
 const unsigned long T_SERVO = 300; // ms para o servo puxar a lingueta
 
-// Tarifa por posto horario (R$/kWh). Valores de exemplo: no prototipo
-// real vem do painel (topico grav/tarifas).
-const float TARIFA_FORA = 0.60;
-const float TARIFA_INTER = 0.90;
-const float TARIFA_PONTA = 1.40;
+// Tarifa por posto horario (R$/kWh). Valores de exemplo ate o painel
+// mandar os seus (topico <TOPICO_BASE>/tarifas, mensagem retida).
+float tarifaFora = 0.60;
+float tarifaInter = 0.90;
+float tarifaPonta = 1.40;
+
+// Potencia estimada nos 3 LEDs de nivel (220 ohm, acendem em ~2, 2,6 e 3,8 V)
+const float LIMIAR_LED[] = {2.0, 2.6, 3.8};  // verde; amarelo + 1x 1N4148; vermelho + 3x 1N4148
+const float R_LED = 220.0;
+const float CONSUMO_AUX_W = 0.8;       // ESP32 com Wi-Fi, INA219 e servo parado
 
 const unsigned long T_CONTROLE = 50;   // ms
 const unsigned long T_FUZZY = 5000;    // ms
 const unsigned long T_TELA = 1000;     // ms
+const unsigned long T_MQTT = 1000;     // ms entre publicacoes do estado
+const unsigned long T_RECONECTA = 10000; // ms entre tentativas de conectar no broker
 
 #if SIMULACAO
 // planta virtual (MVP_FABLAB/01_FISICA/calculos_energia.md)
-const float V_MAX_SUBIDA = 0.0458;   // m/s com PWM 100 % ((12 - 2,2) / 214)
-const float I_GEN = 0.09;            // A, imposta pelo torque da massa (C-109)
-const float R_FIXA = 120.0;          // ohm, carga fixa sempre ligada
-const float R_FRENAGEM = 22.0;       // ohm, chaveada pelo MOSFET
-const float R_A = 4.0;               // ohm, enrolamento
-const float ETA_SUBIDA = 0.33;       // polias x redutor x motor, com I0 (C-103)
-const float ETA_DESCIDA = 0.297;     // polias x redutor x gerador (C-102)
+const float V_MAX_SUBIDA = 0.229;    // m/s com PWM_MAX ((6 - 1,0) / 21,8)
+const float QUEDA_RA = 1.0;          // V no enrolamento na subida (5 A x 0,2 ohm, C-108)
+const float I_GEN = 0.70;            // A, imposta pelo torque da massa (C-109)
+const float R_FIXA = 5.6;            // ohm, carga fixa sempre ligada
+const float R_FRENAGEM = 2.2;        // ohm, chaveada pelo MOSFET
+const float R_A = 0.2;               // ohm, enrolamento
+const float ETA_SUBIDA = 0.37;       // cordao x redutor x motor, com I0 (C-103)
+const float ETA_DESCIDA = 0.25;      // cordao x redutor x gerador (C-102)
 #endif
 
 enum Estado { MANTER, SUBINDO, PREP_DESCIDA, DESCENDO, PARANDO, FALHA, REARME };
@@ -123,15 +150,25 @@ int ticksTravado = 0;
 
 // leituras
 float corrente = 0, hora = 0, demanda = 0, tarifa = 0, vGen = 0;
-float pSubida = 0, pGerada = 0, eSubida = 0, eGerada = 0;
+float pSubida = 0, pGerada = 0, pLeds = 0, eSubida = 0, eGerada = 0, eLeds = 0, eAux = 0;
 float horaForcada = -1, demandaPainel = 0;
 bool horaValida = false;
 float comandoFuzzy = 0;
 long ciclos = 0;
 
-volatile long pulsos = 0;
+long pulsos = 0;                // contagem do encoder (x4)
 
-unsigned long ultControle = 0, ultFuzzy = 0, ultTela = 0;
+unsigned long ultControle = 0, ultFuzzy = 0, ultTela = 0, ultMqtt = 0, ultReconecta = 0;
+bool publicarJa = false;        // troca de estado: publica sem esperar 1 s
+
+WiFiClient rede;
+PubSubClient mqtt(rede);
+#if !SIMULACAO
+Adafruit_INA219 inaSubida(0x40);
+Adafruit_INA219 inaGerada(0x41);
+ESP32Encoder encoder;
+bool sensoresOk = false;
+#endif
 
 // =====================================================================
 // PWM (LEDC), compativel com o core 2.x e 3.x do ESP32
@@ -225,10 +262,17 @@ float fuzzy(float tar, float nivel, float dem) {
                 : constrain(c / maxDescer * 100, -100.0f, 0.0f);
 }
 
+const char *postoDaHora(float hr) {
+  if (hr >= 18 && hr < 21) return "ponta";
+  if ((hr >= 17 && hr < 18) || (hr >= 21 && hr < 22)) return "intermediario";
+  return "fora_ponta";
+}
+
 float tarifaDaHora(float hr) {
-  if (hr >= 18 && hr < 21) return TARIFA_PONTA;
-  if ((hr >= 17 && hr < 18) || (hr >= 21 && hr < 22)) return TARIFA_INTER;
-  return TARIFA_FORA;
+  const char *posto = postoDaHora(hr);
+  if (posto[0] == 'p') return tarifaPonta;
+  if (posto[0] == 'i') return tarifaInter;
+  return tarifaFora;
 }
 
 // =====================================================================
@@ -239,6 +283,7 @@ void aplicarAtuadores() {
   bool lEn = ponte == SUBIR || ponte == CURTO;  // em GERAR o M- fica solto
   digitalWrite(PIN_R_EN, rEn ? HIGH : LOW);
   digitalWrite(PIN_L_EN, lEn ? HIGH : LOW);
+  pwmMotor = constrain(pwmMotor, 0, PWM_MAX);   // nunca mais de 50 % (C-108)
   pwmEscrever(PIN_RPWM, CANAL_RPWM, ponte == SUBIR ? pwmMotor : 0);
   pwmEscrever(PIN_LPWM, CANAL_LPWM, 0);
   pwmEscrever(PIN_FRENAGEM, CANAL_FRENAGEM, (int)(frenagem * 255));
@@ -257,6 +302,7 @@ void entrar(Estado novo) {
   estado = novo;
   etapa = 0;
   inicioEtapa = millis();
+  publicarJa = true;
   Serial.print("-> ");
   Serial.println(NOME_ESTADO[novo]);
 }
@@ -282,7 +328,7 @@ void atualizarPlanta(float dt) {
   float vDesejada = 0;
 
   if (efetiva == SUBIR && pwmMotor > 0) {
-    vDesejada = max(0.0f, (12.0f * pwmMotor / 255.0f - 2.2f) / KE_MASSA);
+    vDesejada = max(0.0f, (12.0f * pwmMotor / 255.0f - QUEDA_RA) / KE_MASSA);
   } else if (efetiva == CURTO) {
     vDesejada = 0;                                // motor em curto: quase parado
   } else if (travaSolta) {
@@ -303,32 +349,40 @@ void atualizarPlanta(float dt) {
   pGerada = gerando ? MASSA * G * -v * ETA_DESCIDA : 0;
   pSubida = (efetiva == SUBIR && v > 0) ? MASSA * G * v / ETA_SUBIDA : 0;
 
-  // LEDs de nivel do GEN (no real: Zener + resistor, sem software)
-  digitalWrite(PIN_LED_VERDE, vGen > 2.0 ? HIGH : LOW);
-  digitalWrite(PIN_LED_AMARELO, vGen > 6.5 ? HIGH : LOW);
-  digitalWrite(PIN_LED_VERMELHO, vGen > 10.0 ? HIGH : LOW);
+  // LEDs de nivel do GEN (no real: diodos em serie + resistor, sem software)
+  digitalWrite(PIN_LED_VERDE, vGen > LIMIAR_LED[0] ? HIGH : LOW);
+  digitalWrite(PIN_LED_AMARELO, vGen > LIMIAR_LED[1] ? HIGH : LOW);
+  digitalWrite(PIN_LED_VERMELHO, vGen > LIMIAR_LED[2] ? HIGH : LOW);
 }
 
 void lerSensores(float dt) {
-  corrente = analogRead(PIN_POT_CORRENTE) * 3.0 / 4095.0;
+  corrente = analogRead(PIN_POT_CORRENTE) * 5.0 / 4095.0;
   atualizarPlanta(dt);
 }
 #else
-// Prototipo real: altura pelo encoder Hall do motor (troque por ESP32Encoder
-// para usar o PCNT: o curso soma ~126.000 contagens), corrente de subida pelo
-// INA219 0x40, tensao e potencia geradas pelo INA219 0x41.
+// Prototipo real: altura pelo encoder LPD3806 no eixo do tambor, contado pelo
+// PCNT do ESP32 (ESP32Encoder, x4: o curso soma ~43.300 contagens), corrente e
+// potencia de subida pelo INA219 0x40, tensao e potencia geradas pelo 0x41.
 float hAnterior = 0;
 void lerSensores(float dt) {
-  noInterrupts();
-  long p = pulsos;
-  interrupts();
-  h = p * MM_POR_PULSO / 1000.0;
-  v = (h - hAnterior) / dt;
+  pulsos = (long)encoder.getCount();
+  h = pulsos * MM_POR_PULSO / 1000.0;
+  v += ((h - hAnterior) / dt - v) * 0.5;   // filtro leve: o encoder anda aos saltos de 39 um
   hAnterior = h;
-  // corrente = ina1.getCurrent_mA() / 1000; pSubida = ina1.getPower_mW() / 1000;
-  // vGen = ina2.getBusVoltage_V(); pGerada = ina2.getPower_mW() / 1000;
+  if (!sensoresOk) return;
+  corrente = max(inaSubida.getCurrent_mA(), 0.0f) / 1000.0;
+  pSubida = max(inaSubida.getPower_mW(), 0.0f) / 1000.0;
+  vGen = inaGerada.getBusVoltage_V();
+  pGerada = max(inaGerada.getPower_mW(), 0.0f) / 1000.0;
 }
 #endif
+
+// LEDs de nivel: cada um conduz (vGen - limiar) / R_LED a partir do seu limiar
+float potenciaLeds(float vg) {
+  float p = 0;
+  for (float limiar : LIMIAR_LED) p += max(vg - limiar, 0.0f) / R_LED * vg;
+  return p;
+}
 
 bool fimInferior() { return digitalRead(PIN_FC_INF) == HIGH || (SIMULACAO && h <= 0.0005); }
 bool fimSuperior() { return digitalRead(PIN_FC_SUP) == HIGH || (SIMULACAO && h >= CURSO); }
@@ -339,6 +393,10 @@ bool fimSuperior() { return digitalRead(PIN_FC_SUP) == HIGH || (SIMULACAO && h >
 void zerarPosicao() {
   h = 0;
   pulsos = 0;
+#if !SIMULACAO
+  encoder.clearCount();
+  hAnterior = 0;
+#endif
   posicaoConhecida = true;
 }
 
@@ -347,6 +405,9 @@ void controlar() {
   unsigned long naEtapa = agora - inicioEtapa;
 
   // ---- protecoes ----
+#if !SIMULACAO
+  if (!sensoresOk) falha("INA219 nao encontrado");
+#endif
   if (digitalRead(PIN_EMERG) == LOW) falha("emergencia");
   if (fabs(v) > V_LIMITE) falha("velocidade alta");
   if (vGen > V_GEN_MAX) falha("tensao gerada alta");
@@ -372,9 +433,11 @@ void controlar() {
       ponte = SUBIR;           // a catraca estala e deixa subir
       frenagem = 0;
       {
-        int alvo = PWM_SUBIDA + (int)(3000 * (V_SUBIDA - v));
-        alvo = constrain(alvo, 0, 255);
-        pwmMotor += constrain(alvo - pwmMotor, -7, 7);  // rampa de ~1,3 s
+        // Desacelera nos ultimos 5 cm: a 0,10 m/s a massa passaria da folga do topo
+        bool perto = h > CURSO - 0.05;
+        int alvo = (perto ? PWM_APROXIMA : PWM_SUBIDA) + (int)(K_SUBIDA * ((perto ? V_APROXIMA : V_SUBIDA) - v));
+        alvo = constrain(alvo, 0, PWM_MAX);
+        pwmMotor += constrain(alvo - pwmMotor, -4, 4);  // rampa de ~1,1 s
       }
       break;
 
@@ -429,7 +492,7 @@ void controlar() {
       {
         // PI incremental: rapido demais -> mais frenagem
         float erro = -v - alvoDescida;
-        frenagem = constrain(frenagem + 2.0f * erro, 0.0f, 1.0f);
+        frenagem = constrain(frenagem + K_DESCIDA * erro, 0.0f, 1.0f);
       }
       break;
 
@@ -467,6 +530,8 @@ void decidir() {
   else if (estado == MANTER && comandoFuzzy < -30 && !fimInferior()) entrar(PREP_DESCIDA);
 }
 
+void executar(char c);
+
 void lerComando() {
   if (!Serial.available()) return;
   String c = Serial.readStringUntil('\n');
@@ -486,7 +551,12 @@ void lerComando() {
     Serial.println(demandaPainel);
     return;
   }
-  switch (c[0]) {
+  executar(c[0]);
+}
+
+// Comandos manuais, iguais pelo Monitor Serial e pelo painel
+void executar(char c) {
+  switch (c) {
     case 'a':
       modo = AUTOMATICO;
       Serial.println("modo automatico");
@@ -538,8 +608,103 @@ void mostrar() {
   Serial.println();
 }
 
-void IRAM_ATTR contarPulso() {
-  pulsos += (digitalRead(PIN_ENC_A) == digitalRead(PIN_ENC_B)) ? 1 : -1;
+// =====================================================================
+// MQTT: estado para o painel, comandos e tarifas do painel
+// =====================================================================
+String topico(const char *nome) { return String(TOPICO_BASE) + "/" + nome; }
+
+// Le um campo de um JSON plano, como {"acao":"subir","demanda_w":3}
+bool campoJson(const String &json, const char *chave, String &valor) {
+  int i = json.indexOf(String("\"") + chave + "\"");
+  if (i < 0) return false;
+  i = json.indexOf(':', i);
+  if (i < 0) return false;
+  i++;
+  while (i < (int)json.length() && json[i] == ' ') i++;
+  if (i < (int)json.length() && json[i] == '"') {
+    int fim = json.indexOf('"', i + 1);
+    if (fim < 0) return false;
+    valor = json.substring(i + 1, fim);
+  } else {
+    int fim = i;
+    while (fim < (int)json.length() && json[fim] != ',' && json[fim] != '}') fim++;
+    valor = json.substring(i, fim);
+    valor.trim();
+  }
+  return true;
+}
+
+void aoReceber(char *top, byte *dados, unsigned int n) {
+  String json;
+  for (unsigned int i = 0; i < n; i++) json += (char)dados[i];
+  String t = top, valor;
+  Serial.print("mqtt ");
+  Serial.print(t);
+  Serial.print(" ");
+  Serial.println(json);
+
+  if (t == topico("tarifas")) {
+    if (campoJson(json, "fora_ponta", valor)) tarifaFora = constrain(valor.toFloat(), 0.0f, 2.0f);
+    if (campoJson(json, "intermediario", valor)) tarifaInter = constrain(valor.toFloat(), 0.0f, 2.0f);
+    if (campoJson(json, "ponta", valor)) tarifaPonta = constrain(valor.toFloat(), 0.0f, 2.0f);
+    return;
+  }
+  if (t != topico("comando")) return;
+  if (campoJson(json, "demanda_w", valor)) demandaPainel = constrain(valor.toFloat(), 0.0f, 10.0f);
+  if (campoJson(json, "hora", valor)) {
+    float hr = valor.toFloat();
+    horaForcada = hr < 0 ? -1 : constrain(hr, 0.0f, 23.99f);
+  }
+  if (campoJson(json, "acao", valor)) {
+    if (valor == "auto") executar('a');
+    else if (valor == "subir") executar('s');
+    else if (valor == "descer") executar('d');
+    else if (valor == "parar") executar('p');
+    else if (valor == "rearmar") executar('r');
+  }
+}
+
+// Conecta no broker sem atrapalhar o controle: so tenta com a massa parada,
+// porque a conexao pode travar o loop por alguns segundos se o broker sumir.
+void manterMqtt(unsigned long agora) {
+  if (mqtt.connected()) {
+    mqtt.loop();
+    return;
+  }
+  if (WiFi.status() != WL_CONNECTED) return;
+  if (estado != MANTER && estado != FALHA) return;
+  if (ultReconecta != 0 && agora - ultReconecta < T_RECONECTA) return;
+  ultReconecta = agora;
+
+  String id = "grav-esp32-" + String((uint32_t)ESP.getEfuseMac(), HEX);
+  String online = topico("online");
+  Serial.print("MQTT: conectando em ");
+  Serial.println(MQTT_BROKER);
+  if (mqtt.connect(id.c_str(), online.c_str(), 1, true, "0")) {
+    mqtt.publish(online.c_str(), "1", true);
+    mqtt.subscribe(topico("comando").c_str());
+    mqtt.subscribe(topico("tarifas").c_str());
+    Serial.println("MQTT: conectado");
+    publicarJa = true;
+  } else {
+    Serial.print("MQTT: falhou, rc=");
+    Serial.println(mqtt.state());
+  }
+}
+
+void publicarEstado() {
+  static char buf[700];
+  snprintf(buf, sizeof(buf),
+           "{\"estado\":\"%s\",\"modo\":\"%s\",\"ponte\":\"%s\",\"h_m\":%.3f,\"nivel_pct\":%.1f,"
+           "\"v_ms\":%.3f,\"p_subida_w\":%.2f,\"p_gerada_w\":%.2f,\"p_leds_w\":%.3f,\"v_gen_v\":%.1f,"
+           "\"frenagem_pct\":%d,\"tarifa_rs_kwh\":%.2f,\"posto\":\"%s\",\"demanda_w\":%.1f,"
+           "\"comando\":%.1f,\"hora\":%.2f,\"hora_valida\":%s,\"ciclo\":%ld,\"e_subida_j\":%.1f,"
+           "\"e_gerada_j\":%.1f,\"e_leds_j\":%.2f,\"e_aux_j\":%.0f,\"i_a\":%.2f,\"motivo\":\"%s\"}",
+           NOME_ESTADO[estado], modo == AUTOMATICO ? "AUTOMATICO" : "MANUAL", NOME_PONTE[ponte],
+           h, nivel(), v, pSubida, pGerada, pLeds, vGen, (int)(frenagem * 100), tarifa, postoDaHora(hora),
+           demanda, comandoFuzzy, hora, horaValida ? "true" : "false", ciclos, eSubida, eGerada, eLeds,
+           eAux, corrente, estado == FALHA ? motivoFalha : "");
+  mqtt.publish(topico("estado").c_str(), buf);
 }
 
 // =====================================================================
@@ -558,7 +723,9 @@ void setup() {
 #if SIMULACAO
   for (uint8_t p : {PIN_LED_VERDE, PIN_LED_AMARELO, PIN_LED_VERMELHO}) pinMode(p, OUTPUT);
 #else
-  attachInterrupt(digitalPinToInterrupt(PIN_ENC_A), contarPulso, CHANGE);
+  ESP32Encoder::useInternalWeakPullResistors = puType::up;
+  encoder.attachFullQuad(PIN_ENC_A, PIN_ENC_B);
+  encoder.clearCount();
 #endif
 
   pwmIniciar(PIN_RPWM, CANAL_RPWM, 20000);
@@ -571,13 +738,30 @@ void setup() {
 
   Serial.begin(115200);
   Wire.begin(21, 22);
+#if !SIMULACAO
+  sensoresOk = inaSubida.begin() && inaGerada.begin();
+  // Os dois ficam na calibracao padrao (32 V, ate 3,2 A): a subida le a media
+  // de ~1,3 A (o capacitor do B+ alisa o PWM) e o gerador ate ~1 A.
+  if (!sensoresOk) {
+    Serial.println("INA219 nao encontrado (0x40 e 0x41): confira SDA 21, SCL 22 e o jumper A0 do segundo");
+  }
+#endif
+  WiFi.mode(WIFI_STA);
   WiFi.begin(WIFI_SSID, WIFI_SENHA);   // conecta em segundo plano
   configTime(FUSO_S, 0, "pool.ntp.org", "a.st1.ntp.br");
+  mqtt.setServer(MQTT_BROKER, MQTT_PORTA);
+  mqtt.setCallback(aoReceber);
+  mqtt.setBufferSize(768);
 
   maxSubir = centroide(0, 0, 0, 1);
   maxDescer = -centroide(1, 0, 0, 0);
 
   Serial.println("Bateria gravitacional - MVP fablab - ESP32");
+  Serial.print("MQTT: ");
+  Serial.print(MQTT_BROKER);
+  Serial.print(" topicos ");
+  Serial.print(TOPICO_BASE);
+  Serial.println("/estado, /comando, /tarifas");
   Serial.println("a=auto s=subir d=descer p=parar r=rearme h19=hora hx=hora do NTP w3=demanda do painel");
   entrar(REARME);  // posicao desconhecida: desce ate o fim de curso inferior
 }
@@ -595,10 +779,20 @@ void loop() {
     demanda = max(digitalRead(PIN_DEMANDA) == LOW ? DEMANDA_CHAVE : 0.0f, demandaPainel);
 
     lerSensores(dt);
+    pLeds = potenciaLeds(vGen);
     eSubida += pSubida * dt;
     eGerada += pGerada * dt;
+    eLeds += pLeds * dt;
+    eAux += CONSUMO_AUX_W * dt;
     controlar();
     aplicarAtuadores();
+  }
+
+  manterMqtt(agora);
+  if (mqtt.connected() && (publicarJa || agora - ultMqtt >= T_MQTT)) {
+    ultMqtt = agora;
+    publicarJa = false;
+    publicarEstado();
   }
 
   if (agora - ultFuzzy >= T_FUZZY) {

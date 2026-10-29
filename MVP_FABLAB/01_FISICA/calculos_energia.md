@@ -1,113 +1,122 @@
 # CÁLCULOS DE ENERGIA — MVP FABLAB
 
-Premissas em `premissas.md`. Numeração C-101 em diante para não confundir com
-os cálculos C-001 a C-010 do projeto principal. "estim." = depende de
-rendimentos estimados.
+Premissas em `premissas.md`: **parafusadeira Bosch GSR 1440-LI** (motor
+550 de 14,4 V + redutor planetário ~1:42 na 1ª marcha), **6 kg, 1,70 m,
+sem talha, tambor de Ø 30 mm** (DEC-025, DEC-026). Numeração C-101 em diante
+para não confundir com os cálculos C-001 a C-010 do projeto principal.
+"estim." = depende de dados estimados do motor; o ensaio 0 confirma.
+
+Versões anteriores no histórico do git: 6 kg com motorredutor 12 V e talha
+(commit `7e96f4c`); 2 kg com motorredutor 6 V (commit `428b3cc`).
 
 ## C-101 — Energia potencial teórica
-E_teo = m·g·h = 5 × 9,81 × 1,00 = **49,05 J (0,0136 Wh)**
+E_teo = m·g·h = 6 × 9,81 × 1,70 = **100,1 J (0,0278 Wh)**
 
-Sanity check: ~0,1 % de uma bateria de celular de 15 Wh. Serve para mostrar
-o princípio, não para guardar energia útil (o projeto principal guarda 333,5 J,
-também didático).
+Sanity check: ~0,2 % de uma bateria de celular de 15 Wh. É uma prova de
+conceito: o que importa é ver o ciclo completo e medir o rendimento.
 
 ## C-102 — Energia nos terminais do gerador (estim.)
-E_gen = E_teo · η_polias · η_redutor,descida · η_gerador
-= 49,05 × 0,90 × 0,55 × 0,60 = 49,05 × 0,297 ≈ **14,6 J**
+Na descida, a massa aplica no motor τ_massa = m·g·r·η_cordão·η_redutor / i
+= 6 × 9,81 × 0,015 × 0,90 × 0,70 / 42 ≈ 13,2 mN·m. O atrito interno do motor
+come τ_atrito = K_t·I_0 ≈ 7,8 mN·m. Sobra ~5,4 mN·m para gerar.
+
+E_gen ≈ (τ_massa − τ_atrito) × ângulo do motor = 5,4 mN·m × 4.760 rad −
+perdas no cobre ≈ **~25 J** (η_descida ≈ 0,25).
+
+A faixa é larga: com I_0 = 0,7 A seriam ~37 J; com I_0 = 1,3 A, ~11 J.
 
 ## C-103 — Energia de subida e eficiência de ida e volta (estim.)
-E_subida ≈ E_teo / (η_polias · η_redutor,subida · η_motor) = 49,05 / 0,351
-≈ **140 a 155 J** (o valor maior inclui a corrente em vazio, ver C-108).
+Com a subida a 0,10 m/s (C-108): E_subida ≈ **~270 J**.
 
-η_ciclo = E_gen / E_subida ≈ **0,10**. É baixo porque o redutor de
-engrenagens retas e o motor pequeno perdem mais que o planetário do projeto
-principal (~0,27). Para o MVP isso é aceitável: o que se mede e se mostra no
-painel é justamente essa eficiência.
+η_ciclo = E_gen / E_subida ≈ **0,09**. Mesma ordem de grandeza das versões
+anteriores (~0,10). É o que o painel mede e mostra.
 
-## C-104 — Tração no cordão e torque no tambor
-T_cordão = m·g / 2 = 24,5 N (talha 2:1); τ_tambor = 24,5 × 0,010 = **0,245 N·m**
+## C-104 — Tração no cordão, torque e margem para retroacionar
+Sem talha: T_cordão = m·g = 58,9 N; τ_tambor = 58,9 × 0,015 = **0,88 N·m** no
+mandril. A parafusadeira chega a 30 N·m: folga enorme para subir.
 
-Motorredutor com torque nominal ≥ 0,5 N·m (≈ 5 kg·cm) dá fator 2. Cordão de
-2 mm com ruptura ≥ 100 kg: fator de segurança ~40.
+**Margem para a massa descer sozinha** = τ_massa / τ_atrito ≈ 13,2 / 7,8 ≈
+**1,7×** (1,3× a 2,4× conforme o I_0 real).
+
+| Massa | Tambor | Margem | `KE_MASSA` (V por m/s) | Desce sozinha? |
+|-------|--------|--------|------------------------|----------------|
+| 2 kg | Ø 30 mm | ~0,6× | 21,8 | não |
+| 6 kg | Ø 26 mm | ~1,5× | 25,2 | provável |
+| **6 kg** | **Ø 30 mm** | **~1,7×** | **21,8** | **sim (escolha)** |
+| 6 kg | Ø 35 mm | ~2,0× | 18,7 | sim, mas o LED vermelho só a 0,20 m/s |
+
+Cordão de 2 mm com ruptura ≥ 100 kg: fator de segurança ~17.
 
 ## C-105 — Relação de transmissão
-- Talha 2:1: o cordão corre o dobro da velocidade da massa.
-- Tambor Ø 20 mm: 1 volta = 62,8 mm de cordão = 31,4 mm de massa.
-- Redutor 1:90.
+- Sem talha: o cordão corre na mesma velocidade da massa.
+- Tambor Ø 30 mm: 1 volta = 94,2 mm de massa.
+- Redutor da parafusadeira na 1ª marcha: ~1:42.
 
-ω_motor = (2·v / r) · i = 18.000 · v (rad/s). 1 cm de massa ≈ 29 voltas do
+ω_motor = (v / r) · i = 2.800 · v (rad/s). 1 cm de massa ≈ 4,5 voltas do
 motor.
 
-Cordão no tambor: 2 m de cordão (talha) / 62,8 mm ≈ 32 voltas + 3 mortas =
-35 voltas × passo 2,5 mm ≈ **88 mm de largura útil do tambor**.
+Cordão no tambor: 1,70 m / 94,2 mm ≈ 18 voltas + 3 mortas = 21 voltas ×
+passo 2,5 mm ≈ **53 mm de largura útil** (imprimir com 60 mm).
 
 ## C-106 — Resolução do encoder
-11 pulsos × 4 (quadratura) × 90 = 3.960 contagens por volta do tambor =
-31,4 mm de massa → **0,00793 mm por contagem** (`MM_POR_PULSO`). O curso de
-1 m soma ~126.000 contagens: acima dos 16 bits do PCNT, então continua
-valendo a ESP32Encoder (acumula estouros). A 0,05 m/s chegam ~6.300
-contagens/s, folgado para o PCNT.
+O motor da parafusadeira não tem encoder. Entra um LPD3806-600BM no eixo do
+tambor: 600 pulsos × 4 (quadratura) = 2.400 contagens por volta = 94,2 mm
+→ **0,0393 mm por contagem** (`MM_POR_PULSO`). O curso soma ~43.300
+contagens (ESP32Encoder acumula os estouros do PCNT). A 0,30 m/s chegam
+~7.600 contagens/s, folgado.
 
 ## C-107 — Tensão e potência geradas por velocidade (estim.)
-E_fcem = K_e · ω_motor = 0,0119 × 18.000 · v ≈ **214 · v** (V) → `KE_MASSA = 214`
+E_fcem = K_e · ω_motor = 0,0078 × 2.800 · v ≈ **21,8 · v** (V) →
+`KE_MASSA = 21.8`
 
-P_el ≈ m·g·v · 0,297
+| v (m/s) | Duração da descida (s) | Tambor / motor (rpm) | Tensão (V) | P gerada (W) | O que acende |
+|---------|------------------------|----------------------|------------|--------------|--------------|
+| 0,06 | 28 | 38 / 1.604 | 1,3 | ~0,8 | nada (frenagem máxima) |
+| 0,10 | 17 | 64 / 2.674 | 2,2 | ~1,4 | LED verde |
+| 0,12 | 14 | 76 / 3.209 | 2,6 | ~1,7 | verde + amarelo (limiar) |
+| 0,15 | 11 | 95 / 4.011 | 3,3 | ~2,2 | verde + amarelo |
+| **0,18** | **9,4** | **115 / 4.813** | **3,9** | **~2,7** | **os 3 LEDs (ponto de projeto)** |
+| 0,30 | 5,7 | 191 / 8.021 | 6,6 | ~4,5 | limite de falha |
 
-| v (m/s) | Duração da descida (s) | Tambor / motor (rpm) | Tensão em vazio (V) | P gerada (W) | O que acende |
-|---------|------------------------|----------------------|---------------------|--------------|--------------|
-| 0,01 | 100 | 19 / 1.719 | 2,1 | ~0,15 | nada útil |
-| 0,02 | 50 | 38 / 3.438 | 4,3 | ~0,29 | LED verde |
-| 0,03 | 33 | 57 / 5.157 | 6,4 | ~0,44 | verde + amarelo (limiar) |
-| 0,04 | 25 | 76 / 6.875 | 8,6 | ~0,58 | verde + amarelo |
-| **0,05** | **20** | **95 / 8.594** | **10,7** | **~0,73** | **os 3 LEDs (ponto de projeto)** |
+A potência é maior que nas versões anteriores (a massa é de 6 kg e desce
+mais rápido), mas a tensão é baixa: o motor 550 gera pouca tensão por
+rotação e o redutor tem só ~1:42. Por isso os LEDs têm limiares baixos
+(2 / 2,6 / 3,8 V, ver `../02_ARQUITETO/circuito.md`).
 
-Acima de ~0,055 m/s a tensão passa dos 12 V da fonte e o diodo de corpo do
-IBT-2 começa a devolver corrente à fonte (ver `02_ARQUITETO/circuito.md`).
-Por isso o alvo máximo é 0,05 m/s e o limite de falha é 0,07 m/s.
-
-**Por que não USB:** a 0,05 m/s sobram ~0,7 W a ~10 V. Um buck para 5 V
-entregaria ~0,6 W (~120 mA). O celular tenta puxar 500 mA ou mais, a tensão
-desaba, o buck desliga e o celular entra e sai de carga. Não é uma
-demonstração confiável.
+## Por que só LEDs, sem USB (DEC-022)
+Continua valendo: ~2,7 W a ~3,9 V, abaixo dos 5 V de uma USB, durante ~9 s.
+Um conversor elevador daria 5 V, mas por poucos segundos; não vale para o
+MVP.
 
 ## C-108 — Subida
-Torque no motor: 0,245 / (0,90 × 0,65 × 90) ≈ 4,7 mN·m → I ≈ 4,7 / 11,9 +
-I_0 ≈ **0,54 A**.
+Torque no motor: 0,883 / (0,90 × 0,75 × 42) ≈ 31 mN·m → I ≈ 31 / 7,8 + I_0
+≈ **5,0 A** no motor.
 
-A 0,03 m/s: E_fcem = 6,4 V; V_motor ≈ 6,4 + 0,54 × 4 ≈ 8,6 V → **PWM ~72 %**
-em 12 V, ~4,6 W, 33 s → ~155 J por subida.
+A 0,10 m/s: E_fcem = 2,2 V; V_motor ≈ 2,2 + 5,0 × 0,2 ≈ 3,2 V → **PWM
+~27 %** em 12 V (`PWM_SUBIDA = 68`), ~16 W, 17 s → **~270 J** por subida.
+Do lado da fonte (onde fica o INA219 nº 1) a corrente é ~1,3 A.
 
-Velocidade máxima de subida com 12 V: (12 − 2,2) / 214 ≈ **0,045 m/s**.
-Fonte de 12 V 3 A dá folga para a partida (até ~2× a corrente de regime).
+Velocidade máxima de subida com o PWM limitado a 50 %: (6 − 1,0) / 21,8 ≈
+**0,23 m/s**.
 
-## C-109 — Carga de frenagem
-Na descida a corrente do gerador é quase fixa, porque é o torque da massa que
-a impõe: I_gen ≈ τ_motor / K_t ≈ 0,07 a 0,11 A (o intervalo cobre o atrito
-desconhecido). A velocidade sai da resistência que o gerador enxerga:
-v ≈ I_gen · (R_carga + R_a) / 214.
+Motor travado: com 50 % de PWM, ~30 A no motor e ~15 A na fonte. A proteção
+de massa travada corta acima de **3,0 A medidos na fonte** por 0,5 s
+(`I_TRAVADO`); o PI sobe o PWM aos poucos, então ela age antes de o motor
+passar de ~15 A. Fonte de **12 V 5 A** e fusível de 5 A.
+
+## C-109 — Cargas do gerador
+Na descida a corrente do gerador é quase fixa, porque é o torque que sobra
+da massa que a impõe: I_gen ≈ (τ_massa − τ_atrito) / K_t ≈ **0,70 A**
+(0,40 a 1,00 A conforme o I_0 real). A velocidade sai da resistência que o
+gerador enxerga: v ≈ I_gen · (R_carga + R_a) / 21,8.
 
 | Carga ligada | R vista | v estimada | Uso |
 |--------------|---------|------------|-----|
-| Carga fixa 120 Ω (sempre ligada) | ~124 Ω | 0,04 a 0,06 m/s | descida sem controle: ESP32 desligado ou travado |
-| 120 Ω ∥ 22 Ω (MOSFET 100 %) | ~23 Ω | ~0,01 m/s | frenagem máxima controlada |
-| Curto pelo IBT-2 (dois lados baixos) | ~4 Ω | < 0,002 m/s | parada e falha |
+| Carga fixa 5,6 Ω (sempre ligada) | ~5,8 Ω | 0,19 m/s (0,11 a 0,27) | descida sem controle: ESP32 desligado ou travado. Fica abaixo do limite de 0,30 m/s |
+| 5,6 Ω ∥ 2,2 Ω (MOSFET 100 %) | ~1,8 Ω | ~0,057 m/s | frenagem máxima controlada |
+| Curto pelo IBT-2 (dois lados baixos) | ~0,2 Ω | ~0,006 m/s | parada e falha (a massa escorrega ~3 mm até a lingueta pegar) |
 
 O PWM do MOSFET varia entre as duas primeiras linhas; a malha PI escolhe o
-ponto. Potência no 22 Ω: < 0,3 W; na carga fixa: < 1,5 W. Resistores de 5 W
-(22 Ω) e 2 W (120 Ω) bastam. Os valores finais saem do ensaio 4.
-
-## Variante B — 10 kg, 1,2 m, tentativa de USB
-Só se o Gabriel escolher a variante B (DEC-014). Muda o motor para um
-**planetário de 37 mm, 12 V, 1:71, com encoder, torque nominal ≥ 1 N·m**
-(η_redutor ~0,70 nos dois sentidos).
-
-| Grandeza | Variante A | Variante B |
-|----------|------------|------------|
-| E_teo | 49 J | 117,7 J |
-| Torque no tambor | 0,245 N·m | 0,49 N·m |
-| KE_MASSA | 214 V/(m/s) | ~169 V/(m/s) |
-| Ponto de projeto | 0,05 m/s, 10,7 V, ~0,7 W | 0,06 m/s, ~10,1 V, ~2,2 W |
-| E_gen por ciclo | ~14,6 J | ~44 J |
-| Saída útil | 3 LEDs | LEDs + USB ~1,5 W por ~20 s (power bank ou luminária USB, não celular) |
-| Torre | ~1,50 m | ~1,75 m |
-| Custo | ≈ R$ 800 | ≈ R$ 1.000 |
+ponto. Potência na carga fixa: até ~5,6 W; no 2,2 Ω: até ~2,2 W. Os dois de
+10 W (cerâmicos). Os valores finais saem dos ensaios 4 e 5: se o I_0 real
+for alto e a massa descer devagar demais, trocar a carga fixa por 8,2 Ω.

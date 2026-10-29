@@ -1,18 +1,20 @@
 """
 Camada de dados do dashboard.
 
-O dashboard só conversa com `obter_leituras()`. Hoje ela devolve dados
-simulados ou um CSV de exemplo; quando o ESP32 publicar em `grav/estado`
-(ver `03_SOFTWARE/contrato_dados.md`), basta implementar `ler_esp32()` — o
-resto do dashboard não muda.
+O dashboard só conversa com `obter_leituras()`. Ela devolve dados
+simulados, um CSV de exemplo ou as leituras que o ESP32 publica por MQTT em
+`<base>/estado` (coletor em `src/mqtt_esp32.py`, passo a passo em
+`MVP_FABLAB/DIY/`). As três fontes têm as mesmas colunas, então o resto do
+dashboard não muda.
 """
 import pandas as pd
 
 from src.simulador import COLUNAS, gerar_leituras
 
 FONTE_SIMULADOR = "Simulador (tempo real)"
+FONTE_ESP32 = "ESP32 (MQTT)"
 FONTE_CSV = "CSV de exemplo"
-FONTES = [FONTE_SIMULADOR, FONTE_CSV]
+FONTES = [FONTE_SIMULADOR, FONTE_ESP32, FONTE_CSV]
 
 # janela -> (minutos, intervalo entre leituras em segundos)
 JANELAS = {
@@ -40,20 +42,23 @@ def carregar_csv(path="data/leituras_esp32.csv"):
     return df[COLUNAS]
 
 
-def ler_esp32(minutos):
+def ler_esp32(minutos, coletor):
     """
-    TODO: ler as leituras reais do ESP32.
+    Leituras do ESP32 recebidas pelo coletor MQTT na janela pedida.
 
-    O ESP32 publica `grav/estado` (30 s e a cada troca de estado) e
-    `grav/energia` por MQTT. Um coletor (por exemplo, paho-mqtt) assina os
-    tópicos e grava cada mensagem em CSV ou SQLite; aqui lemos a janela pedida.
+    Parameters:
+        minutos (int): Tamanho da janela de tempo.
+        coletor (ColetorESP32): Coletor conectado ao broker.
 
-    Deve devolver um DataFrame com as mesmas colunas de `COLUNAS`.
+    Returns:
+        DataFrame: Leituras com as colunas de COLUNAS (vazio até o ESP32 publicar).
     """
-    raise NotImplementedError("Conexão com o ESP32 ainda não implementada.")
+    if coletor is None:
+        return pd.DataFrame(columns=COLUNAS)
+    return coletor.dataframe(minutos)
 
 
-def obter_leituras(fonte=FONTE_SIMULADOR, janela="1 hora", tarifas=None):
+def obter_leituras(fonte=FONTE_SIMULADOR, janela="1 hora", tarifas=None, coletor=None):
     """
     Devolve as leituras da janela escolhida, da mais antiga para a mais nova.
 
@@ -61,11 +66,15 @@ def obter_leituras(fonte=FONTE_SIMULADOR, janela="1 hora", tarifas=None):
         fonte (str): Uma das opções de FONTES.
         janela (str): Uma das chaves de JANELAS.
         tarifas (dict): R$/kWh por posto, usado pelo simulador.
+        coletor (ColetorESP32): Usado só com a fonte FONTE_ESP32.
 
     Returns:
         DataFrame: Leituras com as colunas de COLUNAS.
     """
     minutos, intervalo_s = JANELAS[janela]
+
+    if fonte == FONTE_ESP32:
+        return ler_esp32(minutos, coletor)
 
     if fonte == FONTE_CSV:
         df = carregar_csv()

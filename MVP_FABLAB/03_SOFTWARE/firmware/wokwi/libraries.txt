@@ -1,5 +1,7 @@
-# Bibliotecas do projeto (Wokwi instala sozinho)
-# Nenhuma: WiFi, Wire e o NTP (configTime) vem com o core do ESP32.
-# No prototipo real (SIMULACAO 0) entram:
+# Bibliotecas do projeto (o Wokwi instala sozinho as linhas sem #)
+# WiFi, Wire e o NTP (configTime) vem com o core do ESP32.
+PubSubClient
+# No prototipo real (SIMULACAO 0) entram tambem, pelo Gerenciador de
+# Bibliotecas da Arduino IDE (MVP_FABLAB/DIY/01_gravar_firmware.md):
 # Adafruit INA219
 # ESP32Encoder
