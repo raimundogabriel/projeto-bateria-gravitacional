@@ -10,6 +10,7 @@ o mesmo do projeto principal.
 | [02_teste_bancada.md](02_teste_bancada.md) | ESP32 sozinho com a planta virtual (4 jumpers) e depois o protótipo real, peça por peça | 15 min + ensaios |
 | [03_painel_mqtt.md](03_painel_mqtt.md) | Broker Mosquitto no notebook, configurar o ESP32 e abrir o painel com a fonte “ESP32 (MQTT)” | ~20 min |
 | [04_problemas_comuns.md](04_problemas_comuns.md) | O que fazer quando não grava, não conecta ou não aparece nada | consulta |
+| [05_lista_compras_eletronica.md](05_lista_compras_eletronica.md) | Alimentação do MVP e lista de compras da eletrônica, com caixas para marcar | consulta |
 
 ## Como as partes conversam
 

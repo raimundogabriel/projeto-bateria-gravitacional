@@ -6,6 +6,10 @@ fablab; se tiver, custa zero.
 
 ## Eletrônica
 
+Lista de compras detalhada, com os passivos um a um, a alimentação e o
+que faltava aqui (cabo de força, cabo USB de dados, chave de demanda), em
+`../DIY/05_lista_compras_eletronica.md` (≈ R$ 480).
+
 | Item | Especificação | Qtd | R$ | Observação |
 |------|---------------|-----|-----|------------|
 | ESP32 DevKit V1 | WROOM-32 | 1 | 45 | Reaproveita do projeto principal |
