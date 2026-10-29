@@ -4,8 +4,8 @@ Simulador da bateria gravitacional.
 Enquanto o ESP32 não publica por MQTT, este módulo gera as leituras de
 `grav/estado` (ver `03_SOFTWARE/contrato_dados.md`) a partir de uma planta
 virtual igual à do firmware do MVP fablab
-(`MVP_FABLAB/03_SOFTWARE/firmware/wokwi/sketch.ino`): massa de 6 kg, curso de
-1,70 m, subida a 0,03 m/s, descida entre 0,02 e 0,05 m/s e decisão fuzzy a
+(`MVP_FABLAB/03_SOFTWARE/firmware/wokwi/sketch.ino`): massa de 2 kg, curso de
+1,70 m, motor de 6 V, subida a 0,08 m/s, descida entre 0,06 e 0,13 m/s e decisão fuzzy a
 cada 5 s. A saída útil são os 3 LEDs de nível do barramento gerado; não há USB.
 
 O dia de tarifas é **acelerado**: um dia inteiro (fora de ponta,
@@ -25,19 +25,19 @@ import pandas as pd
 from src.fuzzy_bateria import calcular_comando, velocidade_alvo
 
 # ---------- parâmetros do MVP (iguais ao firmware, MVP_FABLAB/01_FISICA) ----------
-MASSA = 6.0               # kg de anilhas (DEC-014)
+MASSA = 2.0               # kg, uma anilha (DEC-024)
 G = 9.81                  # m/s²
 CURSO = 1.70              # m
-V_SUBIDA = 0.03           # m/s (C-108)
-KE_MASSA = 214.0          # V por m/s de massa (C-107)
-ETA_SUBIDA = 0.33         # polias × redutor × motor, com a corrente em vazio (C-103)
-ETA_DESCIDA = 0.90 * 0.55 * 0.60   # polias × redutor no sentido reverso × gerador (≈ 0,297)
-I_GEN = 0.108             # A, imposta pelo torque da massa (C-109)
-R_FIXA = 100.0            # Ω, carga fixa sempre ligada
-R_FRENAGEM = 22.0         # Ω, chaveada pelo MOSFET
-R_A = 4.0                 # Ω, enrolamento do motor
-LIMIARES_LEDS = (2.0, 6.5, 10.0)   # V em que acendem o verde, o amarelo e o vermelho
-R_LED = 1000.0            # Ω em série com cada LED
+V_SUBIDA = 0.08           # m/s (C-108)
+KE_MASSA = 36.0           # V por m/s de massa (C-107: motor de 6 V, tambor Ø 30 mm, sem talha)
+ETA_SUBIDA = 0.31         # cordão × redutor × motor, com a corrente em vazio (C-103)
+ETA_DESCIDA = 0.90 * 0.55 * 0.60   # cordão × redutor no sentido reverso × gerador (≈ 0,297)
+I_GEN = 0.216             # A, imposta pelo torque da massa (C-109)
+R_FIXA = 22.0             # Ω, carga fixa sempre ligada
+R_FRENAGEM = 6.8          # Ω, chaveada pelo MOSFET
+R_A = 1.0                 # Ω, enrolamento do motor de 6 V
+LIMIARES_LEDS = (2.0, 3.3, 4.4)    # V em que acendem o verde, o amarelo e o vermelho
+R_LED = 220.0             # Ω em série com cada LED
 CONSUMO_AUX_W = 0.8       # ESP32 com Wi-Fi, INA219 e servo parado
 T_FUZZY = 5               # s
 
@@ -95,7 +95,7 @@ def _frenagem(v):
     """
     PWM de frenagem (0 a 1) que segura a massa na velocidade v (m/s): a
     corrente do gerador é fixa, então v depende da resistência que ele enxerga,
-    a carga fixa em paralelo com 22 Ω × PWM (C-109).
+    a carga fixa em paralelo com 6,8 Ω × PWM (C-109).
     """
     r_carga = v * KE_MASSA / I_GEN - R_A
     if r_carga <= 0:
@@ -104,7 +104,7 @@ def _frenagem(v):
 
 
 def _potencia_leds(v_gen):
-    """Potência nos 3 LEDs de nível do barramento gerado (W), cada um com 1 kΩ."""
+    """Potência nos 3 LEDs de nível do barramento gerado (W), cada um com 220 Ω."""
     return sum(max(v_gen - limiar, 0.0) / R_LED * v_gen for limiar in LIMIARES_LEDS)
 
 

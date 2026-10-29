@@ -12,19 +12,21 @@ estados (`MANTER`, `SUBINDO`, `PREP_DESCIDA`, `DESCENDO`, `PARANDO`, `FALHA`,
 
 | Constante | Projeto principal | MVP | Origem |
 |-----------|-------------------|-----|--------|
-| `CURSO` | 1.70 | 1.70 | DEC-014 (mesmo curso) |
+| `CURSO` | 1.70 | 1.70 | DEC-014/DEC-024 (mesmo curso) |
 | `FOLGA_TOPO` | 0.02 | 0.01 | `02_ARQUITETO/mecanica.md` |
-| `V_SUBIDA` | 0.05 | 0.03 | C-108 |
-| `V_MAX_SUBIDA` | 0.09 | 0.045 | C-108 |
-| `V_LIMITE` | 0.10 | 0.07 | C-107 |
-| `V_ALVO_MIN` / `V_ALVO_MAX` | 0.03 / 0.08 | 0.02 / 0.05 | C-107 |
-| `V_FREIO_TOTAL` | 0.025 | 0.01 | C-109 |
-| `KE_MASSA` | 253 | 214 | C-107 |
-| `V_GEN_MAX` | 28 | 14 | TVS 15 V |
-| `I_TRAVADO` | 3.0 | 1.5 | C-108 (2,4× a corrente de regime) |
-| `MM_POR_PULSO` | 0.0393 | 0.00793 | C-106 |
+| `V_SUBIDA` | 0.05 | 0.08 (0.03 nos últimos 5 cm) | C-108 |
+| `V_MAX_SUBIDA` | 0.09 | 0.13 (com `PWM_MAX`) | C-108 |
+| `PWM_MAX` | 255 | 128 (motor de 6 V na fonte de 12 V) | DEC-024 |
+| `PWM_SUBIDA` | — | 88 | C-108 |
+| `V_LIMITE` | 0.10 | 0.20 | C-107 |
+| `V_ALVO_MIN` / `V_ALVO_MAX` | 0.03 / 0.08 | 0.06 / 0.13 | C-107 (LEDs verde e vermelho) |
+| `V_FREIO_TOTAL` | 0.025 | 0.037 | C-109 |
+| `KE_MASSA` | 253 | 36 | C-107 |
+| `V_GEN_MAX` | 28 | 7 | TVS 8,2 V |
+| `I_TRAVADO` | 3.0 | 1.0 (na fonte) | C-108 (2,4× a corrente de regime) |
+| `MM_POR_PULSO` | 0.0393 | 0.0238 | C-106 |
 | `ALIVIO_TRAVA` | 0.003 | 0.003 | = |
-| `MASSA` (planta virtual e painel) | 20 kg | 6 kg | DEC-014 |
+| `MASSA` (planta virtual e painel) | 20 kg | 2 kg | DEC-024 |
 
 ## Mudanças de lógica
 
@@ -36,12 +38,12 @@ estados (`MANTER`, `SUBINDO`, `PREP_DESCIDA`, `DESCENDO`, `PARANDO`, `FALHA`,
    `servoTrava(ENGATADA | SOLTA)` com LEDC a 50 Hz. Os ângulos saem do
    ensaio 3.
 3. **Sequências** (mesma ideia do projeto principal, sem relés):
-   - Subir: frenagem 0 % → `SUBIR` com rampa 0 → ~72 % em 1 s → PI em
-     `V_SUBIDA` → parar com rampa, `CURTO` 200 ms (massa assenta na lingueta)
+   - Subir: frenagem 0 % → `SUBIR` com rampa 0 → ~34 % em 1 s → PI em
+     `V_SUBIDA`, nunca acima de `PWM_MAX` → 0,03 m/s nos últimos 5 cm → parar com rampa, `CURTO` 200 ms (massa assenta na lingueta)
      → `LIVRE`.
    - Descer: `SUBIR` até +3 mm → `CURTO` segurando → servo `SOLTA`, esperar
-     300 ms → frenagem 100 % → `GERAR` → PI na frenagem com alvo de 0,02 a
-     0,05 m/s → parar com frenagem 100 %, `CURTO` até v ≈ 0, servo
+     300 ms → frenagem 100 % → `GERAR` → PI na frenagem com alvo de 0,06 a
+     0,13 m/s → parar com frenagem 100 %, `CURTO` até v ≈ 0, servo
      `ENGATADA`, 500 ms → `LIVRE`, frenagem 0 %.
    - Falha: servo `ENGATADA`, frenagem 100 %, `CURTO`. Só o rearme sai.
 4. **Sondagem da USB → chave de demanda.** Sem K4: a demanda D vem da chave
@@ -61,7 +63,7 @@ estados (`MANTER`, `SUBINDO`, `PREP_DESCIDA`, `DESCENDO`, `PARANDO`, `FALHA`,
 
 ## Painel Streamlit
 Cópia do painel de `03_SOFTWARE/dashboard/` em `dashboard/`, com a mesma
-estrutura e as mesmas abas. Mudam os parâmetros do simulador (6 kg, 1,70 m,
-`KE_MASSA` 214, rendimentos do MVP), a velocidade-alvo do fuzzy (0,02 a
-0,05 m/s) e a saída útil: as colunas `p_usb_w` e `e_usb_j` viram `p_leds_w` e
+estrutura e as mesmas abas. Mudam os parâmetros do simulador (2 kg, 1,70 m,
+`KE_MASSA` 36, rendimentos do MVP), a velocidade-alvo do fuzzy (0,06 a
+0,13 m/s) e a saída útil: as colunas `p_usb_w` e `e_usb_j` viram `p_leds_w` e
 `e_leds_j` (potência e energia nos 3 LEDs de nível). Ver `dashboard/README.md`.

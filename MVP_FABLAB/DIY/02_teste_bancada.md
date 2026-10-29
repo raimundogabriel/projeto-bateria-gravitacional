@@ -18,15 +18,15 @@ Opcional: GPIO **27** → **GND** liga a chave de demanda (5 W). Sem jumper,
 não há demanda; o painel também pode mandar (`w5` no Serial).
 
 O LED azul da placa é o GPIO 2: na simulação ele faz o papel do LED
-vermelho do gerador e acende quando a descida passa de ~10 V.
+vermelho do gerador e acende quando a descida passa de ~4,4 V (0,12 m/s).
 
 ### Roteiro (Monitor Serial a 115200)
 1. Reset (botão EN): `REARME`, a massa virtual desce de 0,40 m até 0 em
-   ~36 s e fica em `MANTER`.
-2. `h3` (3 h, tarifa fora de ponta): `SUBINDO` a 0,03 m/s até ~95 % (1,62 m,
-   ~55 s) e para. `Esub` chega a ~290 J.
+   ~11 s e fica em `MANTER`.
+2. `h3` (3 h, tarifa fora de ponta): `SUBINDO` a 0,08 m/s, mais devagar nos
+   últimos 5 cm, até o fim de curso (1,70 m, ~22 s). `Esub` chega a ~108 J.
 3. `h19` (ponta) e `w5` (demanda de 5 W): `PREP_DESCIDA` e `DESCENDO`;
-   `Egen` sobe até ~30 J numa descida inteira.
+   `Egen` sobe até ~10 J numa descida inteira (~13 s a 0,13 m/s).
 4. Tire o jumper do GPIO 34: `FALHA motivo=emergencia`. Recoloque e digite
    `r`: volta ao `REARME`.
 5. `hx`: volta à hora real (NTP). Precisa do Wi-Fi conectado.
@@ -54,18 +54,20 @@ no firmware em cada um.
   34 → 3V3 **e tire antes de ligar os 12 V**.
 - **Encoder:** alimente o Hall do motor com **3,3 V** (com 5 V os sinais
   chegam a 5 V no ESP32). A → GPIO 32, B → GPIO 33. Gire o tambor uma volta
-  no sentido de subir: `h` deve aumentar ~0,031 m (3.960 contagens × 7,9 µm).
+  no sentido de subir: `h` deve aumentar ~0,094 m (3.960 contagens × 23,8 µm).
   Se **diminuir**, troque os fios A e B.
 - **Fins de curso NF:** ligados entre o GPIO e o GND. Apertar com a mão
   abre o contato e o firmware vê “acionado”. Fio solto também vira
   “acionado”, o que é o lado seguro.
 
-### Ensaio 2 — motor sem cordão, 12 V
+### Ensaio 2 — motor sem cordão, 12 V com PWM até 50 %
 No boot o firmware faz o `REARME`: sobe 3 mm, solta a trava e desce até o
 fim de curso inferior. Sem cordão a massa nunca chega lá, então **aperte o
 fim de curso inferior com a mão** para terminar o rearme. Depois, em manual:
 `s` sobe, `p` para. Olhe `I=` no Serial (ou “Potência” no painel): deve ficar
-perto de C-108 (0,6 A a 0,03 m/s com carga; bem menos sem cordão).
+perto de C-108 (~0,42 A na fonte a 0,08 m/s com a massa; bem menos sem
+cordão). O motor é de 6 V: o firmware nunca passa de 50 % de PWM
+(`PWM_MAX`). **Não ligue o motor direto nos 12 V para testar.**
 
 ### Ensaio 3 — trava (servo)
 Ajuste `SERVO_ENGATADA` (20°) e `SERVO_SOLTA` (80°) no topo do sketch até a

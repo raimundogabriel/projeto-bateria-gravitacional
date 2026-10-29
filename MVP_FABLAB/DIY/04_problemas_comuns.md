@@ -49,5 +49,5 @@ O Serial mostra o motivo. `MQTT: falhou, rc=…`:
 | `FALHA motivo=emergencia` logo no boot | 12V_POT desligado ou divisor do GPIO 34 errado | Com só o USB isso é normal; veja o ensaio 1 em [02](02_teste_bancada.md) |
 | `h` diminui (ou fica em 0 %) quando a massa sobe | Fios do encoder invertidos | Troque A (32) e B (33) |
 | `REARME` não termina | Fim de curso inferior não abre | Verifique o micro switch NF e o fio até o GPIO 25 |
-| `FALHA motivo=trava presa` | A massa não subiu os 3 mm em 3 s para aliviar a lingueta | Motor sem força com `PWM_ALIVIO` 140, lingueta prendendo, ou motor sem 12 V |
-| `FALHA motivo=massa travada` | Corrente de subida acima de 1,5 A por 0,5 s | Cordão enroscado, catraca presa ou carrinho travado na guia |
+| `FALHA motivo=trava presa` | A massa não subiu os 3 mm em 3 s para aliviar a lingueta | Motor sem força com `PWM_ALIVIO` 50, lingueta prendendo, ou IBT-2 sem 12 V |
+| `FALHA motivo=massa travada` | Corrente de subida acima de 1,0 A (medida na fonte) por 0,5 s | Cordão enroscado, catraca presa ou carrinho travado na guia |

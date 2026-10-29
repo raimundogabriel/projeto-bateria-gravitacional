@@ -9,12 +9,15 @@ elimina K1, K2, K4 e o módulo de relés (DEC-017).
 
 ## Tensões
 - Fonte 12 V 3 A chaveada.
-- 12V_POT: 12 V depois da emergência (IBT-2 e servo).
+- 12V_POT: 12 V depois da emergência (IBT-2 e servo). O motor é de **6 V**
+  (DEC-024): o IBT-2 recebe 12 V e o firmware nunca passa de 50 % de PWM
+  (`PWM_MAX = 128`), o que dá 6 V em média no motor.
 - 5V_LOG: LM2596 nº 1, antes da emergência (ESP32 continua ligado para
   avisar e receber o rearme). Durante o desenvolvimento, o ESP32 pode vir só
   da USB do notebook.
 - 5V_SERVO: LM2596 nº 2, depois da emergência.
-- GEN: barramento gerado, 0 a ~11 V na descida (214 V por m/s de massa).
+- GEN: barramento gerado, 0 a ~5 V na descida (36 V por m/s de massa),
+  até ~7 V no limite de 0,20 m/s.
 
 ## Diagrama de ligações
 
@@ -31,14 +34,14 @@ flowchart LR
     INA1 --> DS["Diodo 1N5822<br/>(bloqueia retorno)"]
     DS --> IBT["IBT-2 B+"]
     POT -.divisor 10k/3k3.-> ESP
-    IBT -->|M+| MOT["Motorredutor 12 V<br/>1:90 + encoder"]
+    IBT -->|"M+ (PWM ≤ 50 %)"| MOT["Motorredutor 6 V<br/>1:90 + encoder"]
     IBT -->|M−| MOT
     MOT -->|"M− na descida"| DG["Diodo 1N5822"]
     DG --> INA2["INA219 nº 2<br/>0x41, gerado"]
-    INA2 --> GEN["Nó GEN<br/>470 µF + TVS 15 V"]
-    GEN --> FIX["Carga fixa 100 Ω 2 W<br/>(sempre ligada)"]
-    GEN --> FR["Frenagem 22 Ω 5 W<br/>+ MOSFET D4184"]
-    GEN --> LEDS["3 LEDs de nível<br/>~2 V / ~6 V / ~10 V"]
+    INA2 --> GEN["Nó GEN<br/>470 µF + TVS 8,2 V"]
+    GEN --> FIX["Carga fixa 22 Ω 5 W<br/>(sempre ligada)"]
+    GEN --> FR["Frenagem 6,8 Ω 5 W<br/>+ MOSFET D4184"]
+    GEN --> LEDS["3 LEDs de nível<br/>~2 V / ~3,3 V / ~4,4 V"]
     ESP -->|"GPIO 16/17 PWM<br/>18 R_EN, 13 L_EN"| IBT
     ESP -->|GPIO 19 PWM| FR
     ESP -->|GPIO 4 50 Hz| SERVO
@@ -69,29 +72,34 @@ stateDiagram-v2
 
 | Modo | O que acontece | Quando |
 |------|----------------|--------|
-| LIVRE | Meias-pontes em alta impedância. Se a massa descer, o gerador fecha o circuito pelo diodo de corpo do lado baixo de M+ (~0,7 V a mais) e pela carga fixa: desce sozinha a 0,04–0,06 m/s | Boot (pull-down de 10 kΩ nos dois EN), ESP32 travado. A lingueta normalmente segura antes disso |
+| LIVRE | Meias-pontes em alta impedância. Se a massa descer, o gerador fecha o circuito pelo diodo de corpo do lado baixo de M+ (~0,7 V a mais) e pela carga fixa: desce sozinha a 0,10–0,18 m/s | Boot (pull-down de 10 kΩ nos dois EN), ESP32 travado. A lingueta normalmente segura antes disso |
 | SUBIR | PWM no M+, M− no GND. O diodo do GEN não conduz (M− ≈ 0 V) | Subida |
 | GERAR | M+ no GND pelo lado baixo; M− solto, só sai pelo diodo para o GEN. A frenagem em PWM define a velocidade | Descida |
-| CURTO | Os dois lados baixos ligados: o motor em curto freia a massa até quase parar (< 0,002 m/s) | Parar, falha, segurar enquanto o servo mexe na lingueta |
+| CURTO | Os dois lados baixos ligados: o motor em curto freia a massa até quase parar (~0,006 m/s) | Parar, falha, segurar enquanto o servo mexe na lingueta |
 
 **Por que o diodo em série no B+ do IBT-2:** acima de ~12,7 V no M−, o diodo
 de corpo do lado alto de M− conduziria para o B+. Sem o diodo em série, essa
 corrente chegaria ao 12V_POT, ao servo e ao divisor da emergência (que
-leria "solta" mesmo com o botão apertado). Com o diodo, ela só carrega os
-capacitores do próprio IBT-2.
+leria "solta" mesmo com o botão apertado). Com o motor de 6 V a descida
+normal gera no máximo ~7 V, então isso só aconteceria girando o motor muito
+acima do previsto; o diodo fica como proteção barata.
 
 ## Barramento gerado (GEN)
 M− → 1N5822 → INA219 nº 2 (high-side) → nó GEN com:
-- 470 µF 25 V + 100 nF; TVS SMBJ15A (conduz acima de ~16,7 V).
-- **Carga fixa** 100 Ω 2 W, sempre ligada: limita a descida mesmo sem ESP32.
-- **Frenagem** 22 Ω 5 W em série com módulo MOSFET D4184 (GPIO 19, PWM
+- 470 µF 25 V + 100 nF; TVS P6KE8.2A (com fios; ou SMBJ7.0A em SMD),
+  começa a conduzir perto de 7,8 V, acima do limite de falha de 7 V.
+- **Carga fixa** 22 Ω 5 W, sempre ligada: limita a descida a 0,10–0,18 m/s
+  mesmo sem ESP32.
+- **Frenagem** 6,8 Ω 5 W em série com módulo MOSFET D4184 (GPIO 19, PWM
   5 kHz), 1N5819 em antiparalelo. Mais PWM = mais freio = descida mais lenta
   (mesma convenção do projeto principal).
-- **LEDs de nível (sem software):** verde com 1 kΩ (acende acima de ~2 V);
-  amarelo com Zener 4,7 V + 1 kΩ (~6,5 V); vermelho com Zener 8,2 V + 1 kΩ
-  (~10 V, ponto de projeto).
+- **LEDs de nível (sem software), cada um com 220 Ω em série:** verde
+  sozinho (acende acima de ~2 V, 0,06 m/s); amarelo com 2 diodos 1N4148 em
+  série (~3,3 V, 0,09 m/s); vermelho com Zener 2,4 V (~4,4 V, 0,12 m/s;
+  a 0,13 m/s, ponto de projeto, os 3 acendem). Os limiares baixaram porque o motor de 6 V gera metade
+  da tensão por rotação.
 
-Valores de 100 Ω e 22 Ω são o ponto de partida de C-109; o ensaio 4 e o 5
+Valores de 22 Ω e 6,8 Ω são o ponto de partida de C-109; o ensaio 4 e o 5
 decidem os finais.
 
 ## Trava

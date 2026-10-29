@@ -129,7 +129,7 @@ def conectar_esp32(broker, porta, base):
 coletor = None
 with st.sidebar:
     st.title("🔋 Bateria Gravitacional")
-    st.caption("MVP fablab · 6 kg · 1,70 m")
+    st.caption("MVP fablab · 2 kg · 1,70 m · motor 6 V")
 
     fonte = st.radio("Fonte de dados", FONTES)
     janela = st.selectbox("Janela de tempo", list(JANELAS), index=1)
@@ -189,7 +189,7 @@ if fonte == FONTE_ESP32:
     )
 else:
     st.markdown(
-        "<div class='mock-aviso'>🧪 <b>Simulação</b> — planta virtual de 6 kg e 1,70 m, igual à do firmware do MVP. "
+        "<div class='mock-aviso'>🧪 <b>Simulação</b> — planta virtual de 2 kg e 1,70 m com motor de 6 V, igual à do firmware do MVP. "
         "Para ver o ESP32, escolha a fonte “ESP32 (MQTT)” (passo a passo em <code>MVP_FABLAB/DIY/</code>).</div>",
         unsafe_allow_html=True,
     )
@@ -369,7 +369,7 @@ with tab3:
     rendimento = resumo["rendimento"]
     col2.markdown(
         card("Rendimento do ramo de potência", f"{rendimento * 100:.0f}" if rendimento else "—", "%",
-             "gerada ÷ consumida na subida (estimado: ~10 %)"),
+             "gerada ÷ consumida na subida (estimado: ~9 %)"),
         unsafe_allow_html=True,
     )
     col3.markdown(
@@ -421,7 +421,7 @@ with tab3:
         )
         st.caption(
             "Cada linha é uma descida, com a energia de subida consumida desde a descida anterior. "
-            "Uma descida parcial (regras R6 e R9) gera menos que os ~29,7 J de uma descida inteira, "
+            "Uma descida parcial (regras R6 e R9) gera menos que os ~9,9 J de uma descida inteira, "
             "e duas descidas seguidas aparecem sem subida entre elas."
         )
 
@@ -445,7 +445,7 @@ with tab4:
     st.subheader(f"🔍 Comando fuzzy: **{comando:+.0f}**")
     faixa(*classificar_comando(comando))
     if comando < -30:
-        st.caption(f"Velocidade-alvo de descida: {alvo:.3f} m/s (0,02 a 0,05 m/s).")
+        st.caption(f"Velocidade-alvo de descida: {alvo:.3f} m/s (0,06 a 0,13 m/s).")
     st.caption("Histerese do firmware: começa a mover com |comando| > 30 e continua enquanto |comando| > 10.")
 
     colA, colB = st.columns(2)
@@ -562,12 +562,12 @@ with tab5:
     st.subheader("Proteções do firmware")
     st.dataframe(
         pd.DataFrame([
-            ("Velocidade > 0,07 m/s", "Falha: lingueta engata, frenagem 100 %, ponte em CURTO"),
-            ("Tensão gerada > 14 V", "Falha (a TVS de 15 V protege o barramento)"),
-            ("Corrente de subida > 1,5 A por 500 ms", "Falha: massa travada"),
+            ("Velocidade > 0,20 m/s", "Falha: lingueta engata, frenagem 100 %, ponte em CURTO"),
+            ("Tensão gerada > 7 V", "Falha (a TVS de 8,2 V protege o barramento)"),
+            ("Corrente de subida > 1,0 A (na fonte) por 500 ms", "Falha: massa travada"),
             ("Fim de curso inesperado", "Falha"),
             ("Botão de emergência", "Falha + corte do 12V_POT por hardware (motor e servo)"),
-            ("ESP32 travado ou desligado", "Ponte LIVRE: a carga fixa de 100 Ω limita a descida a ~0,05 m/s"),
+            ("ESP32 travado ou desligado", "Ponte LIVRE: a carga fixa de 22 Ω limita a descida a 0,10–0,18 m/s"),
             ("Trava não solta em 3 s", "Falha: trava presa"),
         ], columns=["Condição", "Ação"]),
         width="stretch",
@@ -588,7 +588,7 @@ with tab6:
 
     st.markdown("""
     ## 🎯 Objetivo Geral
-    Armazenar energia elevando 6 kg de anilhas por 1,70 m quando a tarifa está baixa e
+    Armazenar energia elevando uma anilha de 2 kg por 1,70 m quando a tarifa está baixa e
     liberá-la na descida, quando a tarifa está alta, acendendo os LEDs de nível. A decisão de
     subir, manter ou descer é tomada por lógica fuzzy no ESP32.
     """)
@@ -615,8 +615,8 @@ with tab6:
     - **Economia simulada:** `{reais(resumo['economia_rs'])}`
     - **Consumo da eletrônica, à parte:** `{em_wh(resumo['e_aux_j']):.2f}` Wh
 
-    Uma subida completa armazena `{E_TEORICA_J:.1f}` J (0,0278 Wh). A eletrônica, com cerca de 0,8 W,
-    gasta isso em cerca de 2 minutos: o MVP é didático e mostra a estratégia de decisão,
+    Uma subida completa armazena `{E_TEORICA_J:.1f}` J (0,0093 Wh). A eletrônica, com cerca de 0,8 W,
+    gasta isso em menos de 1 minuto: o MVP é didático e mostra a estratégia de decisão,
     não economia real.
     """)
 
@@ -634,7 +634,7 @@ with tab6:
 
     - `> +30` → ⬆️ começa a subir
     - `−30 a +30` → ⏸️ mantém (com histerese de ±10 para parar)
-    - `< −30` → ⬇️ começa a descer, a 0,02–0,05 m/s
+    - `< −30` → ⬇️ começa a descer, a 0,06–0,13 m/s
     """)
 
     st.success("Relatório gerado automaticamente com base nas leituras e cálculos do dashboard.")

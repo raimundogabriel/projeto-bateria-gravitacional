@@ -3,14 +3,15 @@
 Continua a numeração de `00_MASTER/DECISOES.md` da raiz (DEC-001 a DEC-013
 valem para o projeto principal). Propostas em 2026-10-28; o PR #4 foi
 aprovado e o porte (DEC-014) e a saída (DEC-022) foram decididos em
-2026-10-29. O motor (DEC-015) continua em escolha. As decisões do projeto principal que não aparecem aqui
+2026-10-29. No fim do mesmo dia o Gabriel trocou para motor de 6 V e 2 kg
+(DEC-024), o que substituiu DEC-014, DEC-015 e DEC-016 (DEC-025). As decisões do projeto principal que não aparecem aqui
 continuam valendo no MVP (DEC-002 unidades, DEC-004 controle pela
 frenagem, DEC-007 fuzzy, DEC-011 Wokwi, DEC-013 Streamlit).
 
 ## DEC-014 — Massa de 6 kg de anilhas e curso de 1,70 m
 - **Data:** 2026-10-28 (proposta), 2026-10-29 (decidida)
 - **Skill:** FÍSICO
-- **Status:** decidida pelo Gabriel em 2026-10-29 (Q-009)
+- **Status:** substituída por DEC-024 em 2026-10-29 (a massa passou a 2 kg; o curso de 1,70 m continua)
 - **Contexto:** Pedido de uma releitura menor, montável num fablab, com motor
   mais simples. A proposta inicial era 5 kg em 1,00 m (variante A) ou 10 kg
   em 1,20 m (variante B).
@@ -28,8 +29,7 @@ frenagem, DEC-007 fuzzy, DEC-011 Wokwi, DEC-013 Streamlit).
 ## DEC-015 — Motorredutor 12 V Ø 37 mm 1:90 com encoder Hall
 - **Data:** 2026-10-28
 - **Skill:** ARQUITETO
-- **Status:** referência; em 2026-10-29 o Gabriel ainda está escolhendo o
-  motor pelo custo. O ensaio 0 fecha a escolha
+- **Status:** substituída por DEC-024 em 2026-10-29 (motor de 6 V)
 - **Contexto:** O motor precisa subir 6 kg, retroacionar na descida e gerar
   tensão para os LEDs, com peça de prateleira barata.
 - **Decisão:** Motorredutor DC 12 V, Ø 37 mm, engrenagens retas 1:90
@@ -48,7 +48,7 @@ frenagem, DEC-007 fuzzy, DEC-011 Wokwi, DEC-013 Streamlit).
 ## DEC-016 — Talha 2:1 com tambor impresso no eixo do motor
 - **Data:** 2026-10-28
 - **Skill:** ARQUITETO
-- **Status:** proposta
+- **Status:** substituída por DEC-025 em 2026-10-29 (sem talha, tambor Ø 30 mm)
 - **Decisão:** Tambor PETG Ø 20 mm efetivo (canal helicoidal passo 2,5 mm,
   90 mm úteis) e catraca Ø 50 mm na mesma peça, preso no eixo D de 6 mm do
   motor, com pino Ø 8 mm num 608 do outro lado. Talha 2:1 com polia impressa
@@ -72,7 +72,8 @@ frenagem, DEC-007 fuzzy, DEC-011 Wokwi, DEC-013 Streamlit).
 - **Alternativas descartadas:** manter 1 relé DPDT (funciona, mas acrescenta
   peça e tempo de comutação; fica como plano B se o ensaio 4 falhar).
 - **Consequências:** Firmware ganha `modoPonte()`; pinos 23 e 27 liberados;
-  sem o ESP32, a carga fixa de 100 Ω limita a descida a ~0,05 m/s.
+  sem o ESP32, a carga fixa limita a descida (com o motor de 6 V: 22 Ω,
+  0,10 a 0,18 m/s, DEC-025).
 
 ## DEC-018 — 2× INA219 no lugar de 3× INA226
 - **Data:** 2026-10-28
@@ -155,3 +156,44 @@ frenagem, DEC-007 fuzzy, DEC-011 Wokwi, DEC-013 Streamlit).
   que saiba o tópico manda descer).
 - **Consequências:** O painel só guarda dados enquanto está aberto (até
   24 h em memória, CSV pela aba Histórico). Passo a passo em `../DIY/`.
+
+## DEC-024 — Motor de 6 V e massa de 2 kg
+- **Data:** 2026-10-29
+- **Skill:** FÍSICO
+- **Status:** decidida pelo Gabriel em 2026-10-29 (achou um motor de 6 V;
+  modelo exato ainda não informado, Q-013)
+- **Contexto:** O MVP é só prova de conceito. Um motor de 6 V gera metade da
+  tensão por rotação que o de 12 V, e 2 kg dão um terço da energia de 6 kg.
+- **Decisão:** m_c = 2 kg (uma anilha), h = 1,70 m. Motorredutor de 6 V,
+  Ø 37 mm, engrenagens retas 1:90, encoder Hall (referência JGB37-520 6 V;
+  K_e ≈ 0,006 V·s/rad, R_a ≈ 1 Ω, I_0 ≈ 0,3 A, estimados). A fonte continua
+  12 V 3 A (os LM2596 precisam de > 6,5 V na entrada) e o firmware limita o
+  PWM do motor a 50 % (`PWM_MAX = 128`, 6 V em média). E_teo = 33,4 J;
+  ~9,9 J gerados; η_ciclo ~0,09.
+- **Alternativas descartadas:** fonte de 6 V (os reguladores de 5 V não
+  funcionariam); manter 6 kg com o motor de 6 V (corrente de subida ~3,7 A
+  no motor, perto do limite do motor pequeno).
+- **Consequências:** Tudo refeito em C-101 a C-109. Descida a 0,06–0,13 m/s,
+  limite 0,20 m/s, tensão gerada até ~5 V (LEDs em 2 / 3,3 / 4,4 V), carga
+  fixa 22 Ω, frenagem 6,8 Ω, TVS 8,2 V, `I_TRAVADO = 1,0 A` na fonte.
+- **Revisável em:** ensaio 0, ou quando o Gabriel informar o modelo do
+  motor (Q-013).
+
+## DEC-025 — Sem talha, tambor de Ø 30 mm
+- **Data:** 2026-10-29
+- **Skill:** ARQUITETO
+- **Status:** proposta
+- **Contexto:** Com 2 kg, a talha 2:1 e o tambor de Ø 20 mm dariam só
+  0,098 N·m no tambor. É pouco para o redutor 1:90 retroacionar: a massa
+  provavelmente não desceria sozinha.
+- **Decisão:** Cordão direto do tambor ao carrinho, tambor de Ø 30 mm
+  efetivo (60 mm de largura). Dá 0,294 N·m no tambor, o mesmo do porte de
+  6 kg, e `KE_MASSA = 36` V por m/s. Regra para outro motor: Ø do tambor
+  (mm) ≈ redução / 3.
+- **Alternativas descartadas:** manter a talha (torque baixo demais); tambor
+  maior que Ø 30 mm com 1:90 (mais torque, mas menos tensão: o LED vermelho
+  só acenderia acima do limite de velocidade).
+- **Consequências:** Sai a polia móvel e um rolamento 608; o cordão cai de
+  7 m para 3 m; `MM_POR_PULSO = 0.0238`; a subida desacelera nos últimos
+  5 cm (a 0,08 m/s passaria da folga do topo).
+- **Revisável em:** ensaio 0.

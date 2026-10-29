@@ -7,12 +7,12 @@ Continua a numeração de `00_MASTER/HANDOFF.md` da raiz (até HANDOFF-008).
 ### HANDOFF-009
 - **De:** FÍSICO
 - **Para:** ARQUITETO
-- **O quê:** Comprar um motorredutor 12 V 37 mm 1:90 com encoder (DEC-015),
-  imprimir o tambor e fazer o ensaio 0 de
-  `../01_FISICA/validacao_experimental.md`: retroaciona com 3 kg direto no
+- **O quê:** Comprar o motorredutor de 6 V com encoder (DEC-024, modelo em
+  Q-013), imprimir o tambor de Ø 30 mm e fazer o ensaio 0 de
+  `../01_FISICA/validacao_experimental.md`: retroaciona com 2 kg direto no
   tambor? K_e? R_a?
-- **Critério de pronto:** linha "K_e" e "Retroaciona" preenchidas; DEC-015
-  confirmada ou plano B escolhido.
+- **Critério de pronto:** linha "K_e" e "Retroaciona" preenchidas; DEC-024
+  e DEC-025 confirmadas ou plano B escolhido.
 - **Criado em:** 2026-10-28
 
 ### HANDOFF-010
