@@ -8,7 +8,7 @@ O consumo da eletrônica fica à parte, fora do rendimento do ramo de potência.
 import pandas as pd
 
 J_POR_KWH = 3.6e6
-E_TEORICA_J = 2 * 9.81 * 1.70   # 2 kg, 1,70 m (C-101)
+E_TEORICA_J = 6 * 9.81 * 1.70   # 6 kg, 1,70 m (C-101)
 
 
 def _incrementos(df):

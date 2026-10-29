@@ -1,7 +1,7 @@
 # 🔋 Painel Remoto — Bateria Gravitacional (MVP fablab)
 
 Cópia do painel do projeto principal (`03_SOFTWARE/dashboard/`) adaptada ao
-MVP: 2 kg, 1,70 m, motorredutor de 6 V 1:90 sem talha e LEDs de nível no lugar da saída
+MVP: 6 kg, 1,70 m, parafusadeira Bosch GSR 1440-LI sem talha e LEDs de nível no lugar da saída
 USB. A estrutura, as abas e o fuzzy são os mesmos.
 
 Painel da bateria gravitacional em **Python + Streamlit** (DEC-013). Segue a
@@ -13,10 +13,10 @@ Três fontes de dados na barra lateral: **Simulador**, **ESP32 (MQTT)** e
 **CSV de exemplo**. Para ligar o ESP32, siga `MVP_FABLAB/DIY/`.
 
 > ℹ️ No **Simulador**, as leituras vêm de `src/simulador.py`,
-> uma planta virtual igual à do firmware do MVP (2 kg, 1,70 m, subida a
-> 0,08 m/s, descida a 0,06–0,13 m/s, decisão fuzzy a cada 5 s). O **dia de
+> uma planta virtual igual à do firmware do MVP (6 kg, 1,70 m, subida a
+> 0,10 m/s, descida a 0,10–0,18 m/s, decisão fuzzy a cada 5 s). O **dia de
 > tarifas é acelerado**: um dia inteiro passa a cada 20 minutos, porque num
-> dia real a massa faz um único ciclo de cerca de 40 s.
+> dia real a massa faz um único ciclo de cerca de 30 s.
 
 ---
 
@@ -32,7 +32,7 @@ dashboard/
 │ ├── simulador.py          # Planta virtual da bateria (mesma lógica do firmware)
 │ ├── load_data.py          # Fonte de dados (simulador, ESP32 por MQTT ou CSV)
 │ ├── mqtt_esp32.py         # Coletor MQTT: assina grav/estado, publica grav/comando e grav/tarifas
-│ ├── fuzzy_bateria.py      # Fuzzy de 3 entradas e 11 regras, idêntico ao firmware (alvo 0,06–0,13 m/s)
+│ ├── fuzzy_bateria.py      # Fuzzy de 3 entradas e 11 regras, idêntico ao firmware (alvo 0,10–0,18 m/s)
 │ ├── energia.py            # Energia por descida e economia simulada
 │ ├── visualizacao.py       # Funções gráficas (Altair)
 │
@@ -72,7 +72,7 @@ tarifas por posto horário.
 - Se **tarifa** é ALTA e **nível** é ALTO e há **demanda** → DESCER
 - Se **tarifa** é ALTA e **demanda** é BAIXA → MANTER
 
-No MVP muda só a velocidade-alvo da descida: 0,06 a 0,13 m/s.
+No MVP muda só a velocidade-alvo da descida: 0,10 a 0,18 m/s.
 
 As 11 regras e as funções de pertinência estão em
 `01_FISICA/algoritmos_controle.md`. `src/fuzzy_bateria.py` é escrito em NumPy,
@@ -111,10 +111,10 @@ aberto (até 24 h). As três fontes devolvem as colunas de `COLUNAS` em
 | timestamp | data e hora | 2026-10-28 18:00:00 |
 | estado | — | DESCENDO |
 | h_m / nivel_pct | m / % | 1.234 / 72.6 |
-| v_ms | m/s (positivo para cima) | -0.050 |
-| p_subida_w / p_gerada_w / p_leds_w | W | 0.0 / 0.76 / 0.09 |
-| v_gen_v | V | 4.7 |
-| frenagem_pct | % | 18 |
+| v_ms | m/s (positivo para cima) | -0.150 |
+| p_subida_w / p_gerada_w / p_leds_w | W | 0.0 / 2.21 / 0.03 |
+| v_gen_v | V | 3.3 |
+| frenagem_pct | % | 10 |
 | tarifa_rs_kwh / posto | R$/kWh / — | 1.40 / Ponta |
 | demanda_w | W | 5.0 |
 | comando | −100 a +100 | -64 |

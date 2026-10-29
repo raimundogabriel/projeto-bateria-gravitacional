@@ -49,5 +49,7 @@ O Serial mostra o motivo. `MQTT: falhou, rc=…`:
 | `FALHA motivo=emergencia` logo no boot | 12V_POT desligado ou divisor do GPIO 34 errado | Com só o USB isso é normal; veja o ensaio 1 em [02](02_teste_bancada.md) |
 | `h` diminui (ou fica em 0 %) quando a massa sobe | Fios do encoder invertidos | Troque A (32) e B (33) |
 | `REARME` não termina | Fim de curso inferior não abre | Verifique o micro switch NF e o fio até o GPIO 25 |
-| `FALHA motivo=trava presa` | A massa não subiu os 3 mm em 3 s para aliviar a lingueta | Motor sem força com `PWM_ALIVIO` 50, lingueta prendendo, ou IBT-2 sem 12 V |
-| `FALHA motivo=massa travada` | Corrente de subida acima de 1,0 A (medida na fonte) por 0,5 s | Cordão enroscado, catraca presa ou carrinho travado na guia |
+| `FALHA motivo=trava presa` | A massa não subiu os 3 mm em 3 s para aliviar a lingueta | Motor sem força com `PWM_ALIVIO` 35 (suba para 45), lingueta prendendo, ou IBT-2 sem 12 V |
+| `FALHA motivo=massa travada` | Corrente de subida acima de 3,0 A (medida na fonte) por 0,5 s | Cordão enroscado, catraca presa ou carrinho travado na guia. Se acontecer sem nada travado, falta o capacitor de 1.000 µF no B+ do IBT-2 (o INA219 lê os picos do PWM) |
+| A massa não desce: `DESCENDO` com `v=0` e `gen=0.0V` | Trava Auto-Lock ainda no lugar, embreagem patinando, 2ª marcha, ou massa menor que 6 kg | Refaça o preparo da parafusadeira (`../02_ARQUITETO/mecanica.md`) e o ensaio 0 |
+| A massa desce rápido e dá `FALHA motivo=velocidade alta` | Embreagem da parafusadeira patinando (mandril gira solto do motor) ou cordão escorregando no tambor | Embreagem na posição de furar; aperte o mandril no eixo do tambor |

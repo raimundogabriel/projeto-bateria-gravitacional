@@ -16,8 +16,8 @@ potência. Onde a função existe no projeto principal, o GPIO foi mantido.
 | 25 | Fim de curso inferior (NF) | Micro switch | IN | Alto = acionado | = |
 | 26 | Fim de curso superior (NF) | Micro switch | IN | Alto = acionado | = |
 | 27 | Chave de demanda | Chave alavanca ao GND | IN_PULLUP | Baixo = há demanda | Era K1 |
-| 32 | Encoder A | Hall do motor | IN | — | = |
-| 33 | Encoder B | Hall do motor | IN | — | = |
+| 32 | Encoder A | LPD3806 no eixo do tambor (pull-up 4,7 kΩ a 3,3 V) | IN | — | = |
+| 33 | Encoder B | LPD3806 no eixo do tambor (pull-up 4,7 kΩ a 3,3 V) | IN | — | = |
 | 34 | Estado da emergência | Divisor 10 k / 3,3 k do 12V_POT | IN | Baixo = acionada | Divisor diferente (12 V) |
 
 Saem: GPIO 14 (buzzer), 23 (K2) e o LCD/DS3231 do I²C.
@@ -35,7 +35,7 @@ Pinos usados só na simulação:
 
 | GPIO | Função no Wokwi | No protótipo real |
 |------|-----------------|-------------------|
-| 35 | Potenciômetro da corrente de subida (0 a 3 A) | INA219 nº 1 pelo I²C |
-| 23 | LED verde do gerador (GEN > 2 V) | LED com 1 kΩ direto no GEN, sem software |
-| 14 | LED amarelo do gerador (GEN > 6,5 V) | Zener 4,7 V + 1 kΩ no GEN |
-| 2 | LED vermelho do gerador (GEN > 10 V) | Zener 8,2 V + 1 kΩ no GEN |
+| 35 | Potenciômetro da corrente de subida (0 a 5 A) | INA219 nº 1 pelo I²C |
+| 23 | LED verde do gerador (GEN > 2 V) | LED com 220 Ω direto no GEN, sem software |
+| 14 | LED amarelo do gerador (GEN > 2,6 V) | 1× 1N4148 + LED + 220 Ω no GEN |
+| 2 | LED vermelho do gerador (GEN > 3,8 V) | 3× 1N4148 + LED + 220 Ω no GEN |

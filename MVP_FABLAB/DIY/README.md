@@ -29,7 +29,7 @@ podem rodar no mesmo notebook.
 ## Ordem recomendada
 1. **Gravar o firmware com `SIMULACAO 1`** num ESP32 solto, sem nada
    ligado além de 4 jumpers. O ESP32 roda a mesma planta virtual do Wokwi
-   (massa de 2 kg, motor de 6 V como gerador, encoder) e você vê o ciclo inteiro no Monitor
+   (massa de 6 kg, motor da parafusadeira como gerador, encoder) e você vê o ciclo inteiro no Monitor
    Serial (01 e 02, parte A).
 2. **Ligar o painel** a esse ESP32 pelo Mosquitto (03). Os comandos do
    painel (subir, descer, parar, demanda, hora) já mexem na planta virtual.

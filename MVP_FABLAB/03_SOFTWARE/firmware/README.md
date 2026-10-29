@@ -22,18 +22,18 @@ Para gravar num ESP32 de verdade e ligar ao painel, siga `../../DIY/`.
 | RTC DS1307/DS3231 | Hora por NTP no Wi-Fi (`Wokwi-GUEST` na simulação) |
 | LCD 20×4 e buzzer | Uma linha por segundo no Monitor Serial |
 | Potenciômetro da demanda USB e sondagem K4 | Chave de demanda no GPIO 27 (5 W) e comando `w` (demanda vinda do painel) |
-| 20 kg, 1,70 m, 0,05 m/s, `KE_MASSA` 253 | 2 kg, 1,70 m, 0,08 m/s, `KE_MASSA` 36 (motor de 6 V 1:90, sem talha, tambor Ø 30 mm) |
-| Motor na tensão da fonte | Motor de 6 V na fonte de 12 V: PWM nunca passa de 50 % (`PWM_MAX`) |
+| 20 kg, 1,70 m, 0,05 m/s, `KE_MASSA` 253 | 6 kg, 1,70 m, 0,10 m/s, `KE_MASSA` 21,8 (parafusadeira GSR 1440-LI na 1ª marcha, sem talha, tambor Ø 30 mm) |
+| Motor na tensão da fonte | Motor de 14,4 V na fonte de 12 V: PWM nunca passa de 50 % (`PWM_MAX`), para a subida não passar de ~0,23 m/s |
 | Parar com frenagem e relé | Parar com a ponte em `CURTO` (motor em curto freia a massa) |
 | MQTT ainda não implementado | `grav/estado` a cada 1 s, `grav/comando` e `grav/tarifas` (DEC-023) |
 
 ## Flag `SIMULACAO`
 - `1` (Wokwi): massa, gerador e encoder viram uma planta virtual calculada no
   código, com a física de `MVP_FABLAB/01_FISICA/calculos_energia.md` (C-107 a
-  C-109). O INA219 da subida vira o potenciômetro do GPIO 35 (0 a 3 A). Os 3
-  LEDs de nível do gerador, que no real ficam direto no barramento com Zener,
-  são acesos pelo código nos GPIOs 23, 14 e 2 (só no Wokwi).
-- `0` (protótipo): altura pelo encoder Hall contado no PCNT (ESP32Encoder),
+  C-109). O INA219 da subida vira o potenciômetro do GPIO 35 (0 a 5 A). Os 3
+  LEDs de nível do gerador, que no real ficam direto no barramento com diodos
+  em série, são acesos pelo código nos GPIOs 23, 14 e 2 (só no Wokwi).
+- `0` (protótipo): altura pelo encoder LPD3806 do tambor, contado no PCNT (ESP32Encoder),
   corrente e potência de subida pelo INA219 0x40, tensão e potência geradas
   pelo 0x41 (biblioteca Adafruit INA219). Sem os dois INA219 o firmware fica
   em `FALHA`.
@@ -74,22 +74,22 @@ Sem hora (NTP ainda não respondeu e sem `h`), o automático fica parado em
 Os tempos abaixo saíram do teste fora do Wokwi.
 
 1. Ao iniciar: `REARME`. A massa começa em h = 0,40 m e desce com frenagem a
-   100 % (~0,037 m/s, ~11 s; tensão baixa demais para os LEDs). Para
+   100 % (~0,057 m/s, ~7 s; ~1,2 V, baixo demais para os LEDs). Para
    encurtar, mude a chave "FC inferior" e volte. Fica em `MANTER`.
 2. `h3` (fora de ponta, nível 0): `SUBINDO`. Acendem R_EN, L_EN e RPWM; a
-   massa sobe a 0,08 m/s e desacelera para 0,03 m/s nos últimos 5 cm. Como
+   massa sobe a 0,10 m/s e desacelera para 0,03 m/s nos últimos 5 cm. Como
    o fuzzy decide a cada 5 s, ela normalmente chega ao fim de curso (1,70 m,
-   ~22 s); uma subida inteira gasta ~108 J (`Esub`).
+   ~20 s); uma subida inteira gasta ~270 J (`Esub`).
 3. `h19` (ponta) com a chave de demanda desligada: fica em `MANTER` (R11).
 4. Ligue a chave de demanda (5 W): `PREP_DESCIDA` (RPWM pisca, o servo vai a
    80°), depois `DESCENDO`: L_EN apaga, LED vermelho da frenagem varia, e os
-   LEDs do gerador acendem conforme a velocidade (os 3 perto de 0,13 m/s,
-   ~4,7 V). Uma descida inteira soma ~9,9 J em `Egen`; o fuzzy pode
+   LEDs do gerador acendem conforme a velocidade (os 3 perto de 0,18 m/s,
+   ~3,9 V). Uma descida inteira soma ~25 J em `Egen`; o fuzzy pode
    parar antes (descida parcial, R9). Em manual (`d`) a descida vai a
-   0,13 m/s e leva ~13 s.
+   0,18 m/s e leva ~9,5 s.
 5. Mude a chave da emergência: `FALHA`, ponte em `CURTO`, servo volta a 20°.
    Volte a chave e digite `r`.
-6. Durante uma subida (`s`), gire a corrente acima de 1,0 A: em 0,5 s aparece
+6. Durante uma subida (`s`), gire a corrente acima de 3,0 A: em 0,5 s aparece
    "massa travada".
 7. `hx`: volta à hora do NTP (no Wokwi, a hora real de Brasília).
 

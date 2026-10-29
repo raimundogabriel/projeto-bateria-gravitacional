@@ -72,8 +72,8 @@ frenagem, DEC-007 fuzzy, DEC-011 Wokwi, DEC-013 Streamlit).
 - **Alternativas descartadas:** manter 1 relé DPDT (funciona, mas acrescenta
   peça e tempo de comutação; fica como plano B se o ensaio 4 falhar).
 - **Consequências:** Firmware ganha `modoPonte()`; pinos 23 e 27 liberados;
-  sem o ESP32, a carga fixa limita a descida (com o motor de 6 V: 22 Ω,
-  0,10 a 0,18 m/s, DEC-025).
+  sem o ESP32, a carga fixa limita a descida (com a parafusadeira: 5,6 Ω,
+  ~0,19 m/s, DEC-026).
 
 ## DEC-018 — 2× INA219 no lugar de 3× INA226
 - **Data:** 2026-10-28
@@ -160,8 +160,8 @@ frenagem, DEC-007 fuzzy, DEC-011 Wokwi, DEC-013 Streamlit).
 ## DEC-024 — Motor de 6 V e massa de 2 kg
 - **Data:** 2026-10-29
 - **Skill:** FÍSICO
-- **Status:** decidida pelo Gabriel em 2026-10-29 (achou um motor de 6 V;
-  modelo exato ainda não informado, Q-013)
+- **Status:** substituída por DEC-026 em 2026-10-29 (o motor era o de 14,4 V
+  de uma parafusadeira, não um motorredutor de 6 V)
 - **Contexto:** O MVP é só prova de conceito. Um motor de 6 V gera metade da
   tensão por rotação que o de 12 V, e 2 kg dão um terço da energia de 6 kg.
 - **Decisão:** m_c = 2 kg (uma anilha), h = 1,70 m. Motorredutor de 6 V,
@@ -182,7 +182,8 @@ frenagem, DEC-007 fuzzy, DEC-011 Wokwi, DEC-013 Streamlit).
 ## DEC-025 — Sem talha, tambor de Ø 30 mm
 - **Data:** 2026-10-29
 - **Skill:** ARQUITETO
-- **Status:** proposta
+- **Status:** proposta; continua com a parafusadeira (DEC-026), com outros
+  números
 - **Contexto:** Com 2 kg, a talha 2:1 e o tambor de Ø 20 mm dariam só
   0,098 N·m no tambor. É pouco para o redutor 1:90 retroacionar: a massa
   provavelmente não desceria sozinha.
@@ -194,6 +195,41 @@ frenagem, DEC-007 fuzzy, DEC-011 Wokwi, DEC-013 Streamlit).
   maior que Ø 30 mm com 1:90 (mais torque, mas menos tensão: o LED vermelho
   só acenderia acima do limite de velocidade).
 - **Consequências:** Sai a polia móvel e um rolamento 608; o cordão cai de
-  7 m para 3 m; `MM_POR_PULSO = 0.0238`; a subida desacelera nos últimos
-  5 cm (a 0,08 m/s passaria da folga do topo).
+  7 m para 3 m; a subida desacelera nos últimos 5 cm (a 0,08 m/s passaria da
+  folga do topo). Com a parafusadeira (DEC-026) o tambor continua Ø 30 mm,
+  mas a regra "Ø ≈ redução / 3" não vale mais: `KE_MASSA = 21,8` e
+  `MM_POR_PULSO = 0.0393` (encoder no tambor).
 - **Revisável em:** ensaio 0.
+
+## DEC-026 — Parafusadeira Bosch GSR 1440-LI inteira, 6 kg
+- **Data:** 2026-10-29
+- **Skill:** FÍSICO + ARQUITETO
+- **Status:** decidida pelo Gabriel em 2026-10-29 (respondeu Q-013 e
+  escolheu "parafusadeira inteira" entre as opções)
+- **Contexto:** O motor que o grupo tem é o de 14,4 V da parafusadeira Bosch
+  GSR 1440-LI (artigo 3 601 JA8 4..), não um motorredutor de 6 V. Sozinho,
+  é um motor 550 de ~17.600 rpm em vazio, ~1 A em vazio e dezenas de ampères
+  travado: precisaria de redução ~250:1 e, com 2 kg, o atrito interno não
+  deixaria a massa descer.
+- **Decisão:** Usar a parafusadeira inteira (motor + redutor planetário
+  ~1:42 na 1ª marcha + mandril), sem bateria, sem gatilho e **sem a trava
+  Auto-Lock**. O mandril aperta um eixo Ø 8 mm com o tambor de Ø 30 mm;
+  mancal 608 do outro lado; encoder LPD3806-600BM no eixo do tambor
+  (acoplamento 6 × 8 mm). Massa volta a **6 kg**. Fonte 12 V **5 A**,
+  fusível 5 A, PWM ≤ 50 %. Dados do motor estimados (Mabuchi RS-550VC-7525
+  escalado para 14,4 V): K_e ≈ 0,0078 V·s/rad, R_a ≈ 0,2 Ω, I_0 ≈ 1,0 A.
+- **Números:** margem para descer ~1,7× (1,3 a 2,4); `KE_MASSA = 21,8`;
+  subida a 0,10 m/s com ~5 A no motor e ~1,3 A na fonte (~270 J); descida a
+  0,10–0,18 m/s, ~25 J (11 a 37); η_ciclo ~0,09; limite 0,30 m/s; LEDs em
+  2 / 2,6 / 3,8 V; carga fixa 5,6 Ω 10 W (descida sem ESP32 a ~0,19 m/s);
+  frenagem 2,2 Ω 10 W; `I_TRAVADO = 3,0 A` na fonte; capacitor de
+  1.000 µF no B+ do IBT-2.
+- **Alternativas descartadas:** só o motor da parafusadeira com outro
+  redutor (precisa de ~250:1 e o atrito segura a massa); comprar um
+  motorredutor de 6 V (o Gabriel preferiu usar o que o grupo já tem); 2 kg
+  com a parafusadeira (margem ~0,6×: não desce).
+- **Consequências:** Tudo refeito em C-101 a C-109, firmware, painel, DIY e
+  lista de compras (≈ R$ 520 de eletrônica). O motor deixa de ser compra; o
+  ensaio 0 não precisa de eletrônica nenhuma. As peças retiradas da
+  parafusadeira são guardadas.
+- **Revisável em:** ensaio 0 (i, K_e, R_a, I_0 e se desce com 6 kg).

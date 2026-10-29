@@ -7,12 +7,14 @@ Continua a numeração de `00_MASTER/HANDOFF.md` da raiz (até HANDOFF-008).
 ### HANDOFF-009
 - **De:** FÍSICO
 - **Para:** ARQUITETO
-- **O quê:** Comprar o motorredutor de 6 V com encoder (DEC-024, modelo em
-  Q-013), imprimir o tambor de Ø 30 mm e fazer o ensaio 0 de
-  `../01_FISICA/validacao_experimental.md`: retroaciona com 2 kg direto no
-  tambor? K_e? R_a?
-- **Critério de pronto:** linha "K_e" e "Retroaciona" preenchidas; DEC-024
-  e DEC-025 confirmadas ou plano B escolhido.
+- **O quê:** Preparar a parafusadeira GSR 1440-LI (DEC-026: sem bateria,
+  sem gatilho, sem a trava Auto-Lock, 1ª marcha), imprimir o tambor de
+  Ø 30 mm e fazer o ensaio 0 de `../01_FISICA/validacao_experimental.md`:
+  desce sozinha com 6 kg direto no tambor? Redução i? K_e? R_a? I_0?
+- **Critério de pronto:** linhas "i", "K_e", "R_a", "I_0" e "Retroaciona"
+  preenchidas; DEC-025 e DEC-026 confirmadas, ou tambor Ø 35 mm / mais
+  massa escolhidos. Com os números medidos, o DESENVOLVEDOR troca
+  `KE_MASSA`, `PWM_SUBIDA` e as constantes da planta virtual.
 - **Criado em:** 2026-10-28
 
 ### HANDOFF-010

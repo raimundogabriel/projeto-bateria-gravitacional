@@ -2,9 +2,10 @@
 //
 // Mesma estrutura do firmware do projeto principal
 // (03_SOFTWARE/firmware/wokwi/sketch.ino), adaptada ao MVP:
-// 2 kg, 1,70 m, motorredutor de 6 V 1:90 (referencia, DEC-024) com o PWM
+// 6 kg, 1,70 m, parafusadeira Bosch GSR 1440-LI inteira (motor 550 de 14,4 V
+// + redutor ~1:42 na 1a marcha, sem a trava Auto-Lock, DEC-026) com o PWM
 // limitado a 50 % da fonte de 12 V, cordao direto num tambor de 30 mm sem
-// talha (DEC-025), sem reles (o IBT-2 com R_EN e L_EN separados faz a troca
+// talha (DEC-025), encoder LPD3806 no eixo do tambor, sem reles (o IBT-2 com R_EN e L_EN separados faz a troca
 // subir/gerar, DEC-017), trava por servo (DEC-019),
 // 2x INA219 (DEC-018), hora por NTP e sem LCD (DEC-021), saida so com
 // LEDs (DEC-022).
@@ -47,7 +48,7 @@ const uint8_t PIN_ENC_A = 32;
 const uint8_t PIN_ENC_B = 33;
 const uint8_t PIN_EMERG = 34;     // ALTO = emergencia solta (12V_POT presente)
 #if SIMULACAO
-const uint8_t PIN_POT_CORRENTE = 35;  // no lugar do INA219 n. 1 (0 a 3 A)
+const uint8_t PIN_POT_CORRENTE = 35;  // no lugar do INA219 n. 1 (0 a 5 A)
 const uint8_t PIN_LED_VERDE = 23;     // so Wokwi: no real os LEDs ficam direto no GEN
 const uint8_t PIN_LED_AMARELO = 14;
 const uint8_t PIN_LED_VERMELHO = 2;
@@ -65,27 +66,27 @@ const char *TOPICO_BASE = "grav-mvp-fablab";  // broker publico: um nome so seu;
 const long FUSO_S = -3 * 3600;         // horario de Brasilia
 
 // ---------- parametros do MVP (MVP_FABLAB/01_FISICA) ----------
-const float MASSA = 2.0;           // kg, uma anilha (DEC-024)
+const float MASSA = 6.0;           // kg de anilhas (DEC-026)
 const float G = 9.81;
 const float CURSO = 1.70;          // m, posicao do fim de curso superior
 const float FOLGA_TOPO = 0.01;     // m de folga mecanica acima dele (alivio da trava)
-const float V_SUBIDA = 0.08;       // m/s (C-108)
-const float V_LIMITE = 0.20;       // m/s, acima disso e falha
-const float V_ALVO_MIN = 0.06;     // m/s (C-107): LED verde
-const float V_ALVO_MAX = 0.13;     // m/s: os 3 LEDs
-const float KE_MASSA = 36.0;       // V por m/s de massa (Ke 0,006 x 90 / 0,015)
+const float V_SUBIDA = 0.10;       // m/s (C-108)
+const float V_LIMITE = 0.30;       // m/s, acima disso e falha
+const float V_ALVO_MIN = 0.10;     // m/s (C-107): LED verde
+const float V_ALVO_MAX = 0.18;     // m/s: os 3 LEDs
+const float KE_MASSA = 21.8;       // V por m/s de massa (Ke 0,0078 x 42 / 0,015), estimado ate o ensaio 0
 const float V_GEN_MAX = 7.0;       // V (TVS de 8,2 V)
-const float I_TRAVADO = 1.0;       // A medidos na fonte (C-108)
+const float I_TRAVADO = 3.0;       // A medidos na fonte (C-108)
 const float ALIVIO_TRAVA = 0.003;  // m que a massa sobe para soltar a lingueta
-const float MM_POR_PULSO = 0.0238; // Hall 11 pulsos x4 x 90, tambor 30 mm, sem talha
+const float MM_POR_PULSO = 0.0393; // LPD3806 600 pulsos x4 no eixo do tambor de 30 mm, sem talha
 const float DEMANDA_CHAVE = 5.0;   // W quando a chave de demanda esta ligada
-const int PWM_MAX = 128;           // 50 % de 12 V = 6 V medios: o motor e de 6 V
-const int PWM_SUBIDA = 88;         // ~34 %: 0,08 m/s (C-108)
-const int PWM_ALIVIO = 50;         // ~20 %: sobe os 3 mm devagar
+const int PWM_MAX = 128;           // 50 % de 12 V: a subida nunca passa de ~0,23 m/s
+const int PWM_SUBIDA = 68;         // ~27 %: 0,10 m/s (C-108)
+const int PWM_ALIVIO = 35;         // ~14 %: sobe os 3 mm devagar
 const float V_APROXIMA = 0.03;     // m/s nos ultimos 5 cm antes do topo
-const int PWM_APROXIMA = 49;       // ~19 %: 0,03 m/s
-const float K_SUBIDA = 500;        // ganho do PI da subida (PWM por m/s de erro)
-const float K_DESCIDA = 0.8;       // ganho do PI da frenagem (por m/s de erro, a cada 50 ms)
+const int PWM_APROXIMA = 35;       // ~14 %: 0,03 m/s
+const float K_SUBIDA = 300;        // ganho do PI da subida (PWM por m/s de erro)
+const float K_DESCIDA = 0.6;       // ganho do PI da frenagem (por m/s de erro, a cada 50 ms)
 const int SERVO_ENGATADA = 20;     // graus; calibrar no ensaio 3
 const int SERVO_SOLTA = 80;        // graus
 const unsigned long T_SERVO = 300; // ms para o servo puxar a lingueta
@@ -96,8 +97,8 @@ float tarifaFora = 0.60;
 float tarifaInter = 0.90;
 float tarifaPonta = 1.40;
 
-// Potencia estimada nos 3 LEDs de nivel (Zener + 1 kOhm, acendem em 2, 6,5 e 10 V)
-const float LIMIAR_LED[] = {2.0, 3.3, 4.4};  // verde; amarelo + 2x 1N4148; vermelho + Zener 2,4 V
+// Potencia estimada nos 3 LEDs de nivel (220 ohm, acendem em ~2, 2,6 e 3,8 V)
+const float LIMIAR_LED[] = {2.0, 2.6, 3.8};  // verde; amarelo + 1x 1N4148; vermelho + 3x 1N4148
 const float R_LED = 220.0;
 const float CONSUMO_AUX_W = 0.8;       // ESP32 com Wi-Fi, INA219 e servo parado
 
@@ -109,14 +110,14 @@ const unsigned long T_RECONECTA = 10000; // ms entre tentativas de conectar no b
 
 #if SIMULACAO
 // planta virtual (MVP_FABLAB/01_FISICA/calculos_energia.md)
-const float V_MAX_SUBIDA = 0.132;    // m/s com PWM_MAX ((6 - 1,23) / 36)
-const float QUEDA_RA = 1.23;         // V no enrolamento na subida (1,23 A x 1 ohm, C-108)
-const float I_GEN = 0.216;           // A, imposta pelo torque da massa (C-109)
-const float R_FIXA = 22.0;           // ohm, carga fixa sempre ligada
-const float R_FRENAGEM = 6.8;        // ohm, chaveada pelo MOSFET
-const float R_A = 1.0;               // ohm, enrolamento
-const float ETA_SUBIDA = 0.31;       // cordao x redutor x motor, com I0 (C-103)
-const float ETA_DESCIDA = 0.297;     // cordao x redutor x gerador (C-102)
+const float V_MAX_SUBIDA = 0.229;    // m/s com PWM_MAX ((6 - 1,0) / 21,8)
+const float QUEDA_RA = 1.0;          // V no enrolamento na subida (5 A x 0,2 ohm, C-108)
+const float I_GEN = 0.70;            // A, imposta pelo torque da massa (C-109)
+const float R_FIXA = 5.6;            // ohm, carga fixa sempre ligada
+const float R_FRENAGEM = 2.2;        // ohm, chaveada pelo MOSFET
+const float R_A = 0.2;               // ohm, enrolamento
+const float ETA_SUBIDA = 0.37;       // cordao x redutor x motor, com I0 (C-103)
+const float ETA_DESCIDA = 0.25;      // cordao x redutor x gerador (C-102)
 #endif
 
 enum Estado { MANTER, SUBINDO, PREP_DESCIDA, DESCENDO, PARANDO, FALHA, REARME };
@@ -282,7 +283,7 @@ void aplicarAtuadores() {
   bool lEn = ponte == SUBIR || ponte == CURTO;  // em GERAR o M- fica solto
   digitalWrite(PIN_R_EN, rEn ? HIGH : LOW);
   digitalWrite(PIN_L_EN, lEn ? HIGH : LOW);
-  pwmMotor = constrain(pwmMotor, 0, PWM_MAX);   // nunca mais de 6 V medios no motor de 6 V
+  pwmMotor = constrain(pwmMotor, 0, PWM_MAX);   // nunca mais de 50 % (C-108)
   pwmEscrever(PIN_RPWM, CANAL_RPWM, ponte == SUBIR ? pwmMotor : 0);
   pwmEscrever(PIN_LPWM, CANAL_LPWM, 0);
   pwmEscrever(PIN_FRENAGEM, CANAL_FRENAGEM, (int)(frenagem * 255));
@@ -348,25 +349,25 @@ void atualizarPlanta(float dt) {
   pGerada = gerando ? MASSA * G * -v * ETA_DESCIDA : 0;
   pSubida = (efetiva == SUBIR && v > 0) ? MASSA * G * v / ETA_SUBIDA : 0;
 
-  // LEDs de nivel do GEN (no real: Zener + resistor, sem software)
+  // LEDs de nivel do GEN (no real: diodos em serie + resistor, sem software)
   digitalWrite(PIN_LED_VERDE, vGen > LIMIAR_LED[0] ? HIGH : LOW);
   digitalWrite(PIN_LED_AMARELO, vGen > LIMIAR_LED[1] ? HIGH : LOW);
   digitalWrite(PIN_LED_VERMELHO, vGen > LIMIAR_LED[2] ? HIGH : LOW);
 }
 
 void lerSensores(float dt) {
-  corrente = analogRead(PIN_POT_CORRENTE) * 3.0 / 4095.0;
+  corrente = analogRead(PIN_POT_CORRENTE) * 5.0 / 4095.0;
   atualizarPlanta(dt);
 }
 #else
-// Prototipo real: altura pelo encoder Hall do motor, contado pelo PCNT do
-// ESP32 (ESP32Encoder, x4: o curso soma ~71.400 contagens), corrente e
+// Prototipo real: altura pelo encoder LPD3806 no eixo do tambor, contado pelo
+// PCNT do ESP32 (ESP32Encoder, x4: o curso soma ~43.300 contagens), corrente e
 // potencia de subida pelo INA219 0x40, tensao e potencia geradas pelo 0x41.
 float hAnterior = 0;
 void lerSensores(float dt) {
   pulsos = (long)encoder.getCount();
   h = pulsos * MM_POR_PULSO / 1000.0;
-  v += ((h - hAnterior) / dt - v) * 0.5;   // filtro leve: o encoder anda aos saltos de 8 um
+  v += ((h - hAnterior) / dt - v) * 0.5;   // filtro leve: o encoder anda aos saltos de 39 um
   hAnterior = h;
   if (!sensoresOk) return;
   corrente = max(inaSubida.getCurrent_mA(), 0.0f) / 1000.0;
@@ -376,7 +377,7 @@ void lerSensores(float dt) {
 }
 #endif
 
-// LEDs de nivel: cada um conduz (vGen - limiar) / 1 kOhm a partir do seu limiar
+// LEDs de nivel: cada um conduz (vGen - limiar) / R_LED a partir do seu limiar
 float potenciaLeds(float vg) {
   float p = 0;
   for (float limiar : LIMIAR_LED) p += max(vg - limiar, 0.0f) / R_LED * vg;
@@ -432,7 +433,7 @@ void controlar() {
       ponte = SUBIR;           // a catraca estala e deixa subir
       frenagem = 0;
       {
-        // Desacelera nos ultimos 5 cm: a 0,08 m/s a massa passaria da folga do topo
+        // Desacelera nos ultimos 5 cm: a 0,10 m/s a massa passaria da folga do topo
         bool perto = h > CURSO - 0.05;
         int alvo = (perto ? PWM_APROXIMA : PWM_SUBIDA) + (int)(K_SUBIDA * ((perto ? V_APROXIMA : V_SUBIDA) - v));
         alvo = constrain(alvo, 0, PWM_MAX);
@@ -739,11 +740,9 @@ void setup() {
   Wire.begin(21, 22);
 #if !SIMULACAO
   sensoresOk = inaSubida.begin() && inaGerada.begin();
-  if (sensoresOk) {
-    // subida: a calibracao padrao (32 V, ate 3,2 A) cobre a partida do motor;
-    // gerada: ~0,1 A e ate 14 V, entao a faixa de 16 V e 400 mA tem mais resolucao
-    inaGerada.setCalibration_16V_400mA();
-  } else {
+  // Os dois ficam na calibracao padrao (32 V, ate 3,2 A): a subida le a media
+  // de ~1,3 A (o capacitor do B+ alisa o PWM) e o gerador ate ~1 A.
+  if (!sensoresOk) {
     Serial.println("INA219 nao encontrado (0x40 e 0x41): confira SDA 21, SCL 22 e o jumper A0 do segundo");
   }
 #endif

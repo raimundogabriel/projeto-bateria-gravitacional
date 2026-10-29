@@ -15,8 +15,8 @@ from functools import lru_cache
 
 import numpy as np
 
-V_ALVO_MIN = 0.06   # m/s, velocidade-alvo de descida do MVP (C-107)
-V_ALVO_MAX = 0.13   # m/s
+V_ALVO_MIN = 0.10   # m/s, velocidade-alvo de descida do MVP (C-107)
+V_ALVO_MAX = 0.18   # m/s
 
 FAIXAS = {
     "tarifa": (0.0, 2.0),
