@@ -4,8 +4,8 @@ Simulador da bateria gravitacional.
 Enquanto o ESP32 não publica por MQTT, este módulo gera as leituras de
 `grav/estado` (ver `03_SOFTWARE/contrato_dados.md`) a partir de uma planta
 virtual igual à do firmware do MVP fablab
-(`MVP_FABLAB/03_SOFTWARE/firmware/wokwi/sketch.ino`): massa de 5 kg, curso de
-1,00 m, subida a 0,03 m/s, descida entre 0,02 e 0,05 m/s e decisão fuzzy a
+(`MVP_FABLAB/03_SOFTWARE/firmware/wokwi/sketch.ino`): massa de 6 kg, curso de
+1,70 m, subida a 0,03 m/s, descida entre 0,02 e 0,05 m/s e decisão fuzzy a
 cada 5 s. A saída útil são os 3 LEDs de nível do barramento gerado; não há USB.
 
 O dia de tarifas é **acelerado**: um dia inteiro (fora de ponta,
@@ -25,15 +25,15 @@ import pandas as pd
 from src.fuzzy_bateria import calcular_comando, velocidade_alvo
 
 # ---------- parâmetros do MVP (iguais ao firmware, MVP_FABLAB/01_FISICA) ----------
-MASSA = 5.0               # kg (DEC-014)
+MASSA = 6.0               # kg de anilhas (DEC-014)
 G = 9.81                  # m/s²
-CURSO = 1.00              # m
+CURSO = 1.70              # m
 V_SUBIDA = 0.03           # m/s (C-108)
 KE_MASSA = 214.0          # V por m/s de massa (C-107)
 ETA_SUBIDA = 0.33         # polias × redutor × motor, com a corrente em vazio (C-103)
 ETA_DESCIDA = 0.90 * 0.55 * 0.60   # polias × redutor no sentido reverso × gerador (≈ 0,297)
-I_GEN = 0.09              # A, imposta pelo torque da massa (C-109)
-R_FIXA = 120.0            # Ω, carga fixa sempre ligada
+I_GEN = 0.108             # A, imposta pelo torque da massa (C-109)
+R_FIXA = 100.0            # Ω, carga fixa sempre ligada
 R_FRENAGEM = 22.0         # Ω, chaveada pelo MOSFET
 R_A = 4.0                 # Ω, enrolamento do motor
 LIMIARES_LEDS = (2.0, 6.5, 10.0)   # V em que acendem o verde, o amarelo e o vermelho

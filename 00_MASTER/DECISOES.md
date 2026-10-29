@@ -191,7 +191,7 @@ Modelo de entrada:
   2 mm.
 - **Revisável em:** se a massa aumentar.
 
-> DEC-014 a DEC-021 são propostas da variante MVP para fablab e ficam em
+> DEC-014 a DEC-022 são da variante MVP para fablab e ficam em
 > `MVP_FABLAB/00_MASTER/DECISOES.md`. Não mudam o projeto principal.
 
 ## DEC-013 — Painel remoto em Streamlit

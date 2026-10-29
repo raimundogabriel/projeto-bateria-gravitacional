@@ -2,9 +2,10 @@
 //
 // Mesma estrutura do firmware do projeto principal
 // (03_SOFTWARE/firmware/wokwi/sketch.ino), adaptada ao MVP:
-// 5 kg, 1,00 m, motorredutor 12 V 1:90, sem reles (o IBT-2 com R_EN e L_EN
+// 6 kg de anilhas, 1,70 m, motorredutor 12 V 1:90 (referencia, DEC-015), sem reles (o IBT-2 com R_EN e L_EN
 // separados faz a troca subir/gerar, DEC-017), trava por servo (DEC-019),
-// 2x INA219 (DEC-018), hora por NTP e sem LCD (DEC-021).
+// 2x INA219 (DEC-018), hora por NTP e sem LCD (DEC-021), saida so com
+// LEDs (DEC-022).
 //
 // Com SIMULACAO 1 (Wokwi), a massa e o gerador viram uma "planta virtual"
 // calculada no codigo, o INA219 da subida vira um potenciometro e os LEDs de
@@ -52,9 +53,9 @@ const char *WIFI_SENHA = "senha";
 const long FUSO_S = -3 * 3600;         // horario de Brasilia
 
 // ---------- parametros do MVP (MVP_FABLAB/01_FISICA) ----------
-const float MASSA = 5.0;           // kg (DEC-014)
+const float MASSA = 6.0;           // kg de anilhas (DEC-014)
 const float G = 9.81;
-const float CURSO = 1.00;          // m, posicao do fim de curso superior
+const float CURSO = 1.70;          // m, posicao do fim de curso superior
 const float FOLGA_TOPO = 0.01;     // m de folga mecanica acima dele (alivio da trava)
 const float V_SUBIDA = 0.03;       // m/s (C-108)
 const float V_LIMITE = 0.07;       // m/s, acima disso e falha
@@ -66,7 +67,7 @@ const float I_TRAVADO = 1.5;       // A
 const float ALIVIO_TRAVA = 0.003;  // m que a massa sobe para soltar a lingueta
 const float MM_POR_PULSO = 0.00793;// Hall 11 pulsos x4 x 90, tambor 20 mm, talha 2:1
 const float DEMANDA_CHAVE = 5.0;   // W quando a chave de demanda esta ligada
-const int PWM_SUBIDA = 184;        // ~72 %: 0,03 m/s com 12 V (C-108)
+const int PWM_SUBIDA = 189;        // ~74 %: 0,03 m/s com 12 V (C-108)
 const int PWM_ALIVIO = 140;        // ~55 %: sobe os 3 mm devagar
 const int SERVO_ENGATADA = 20;     // graus; calibrar no ensaio 3
 const int SERVO_SOLTA = 80;        // graus
@@ -84,9 +85,9 @@ const unsigned long T_TELA = 1000;     // ms
 
 #if SIMULACAO
 // planta virtual (MVP_FABLAB/01_FISICA/calculos_energia.md)
-const float V_MAX_SUBIDA = 0.0458;   // m/s com PWM 100 % ((12 - 2,2) / 214)
-const float I_GEN = 0.09;            // A, imposta pelo torque da massa (C-109)
-const float R_FIXA = 120.0;          // ohm, carga fixa sempre ligada
+const float V_MAX_SUBIDA = 0.0444;   // m/s com PWM 100 % ((12 - 2,5) / 214)
+const float I_GEN = 0.108;           // A, imposta pelo torque da massa (C-109)
+const float R_FIXA = 100.0;          // ohm, carga fixa sempre ligada
 const float R_FRENAGEM = 22.0;       // ohm, chaveada pelo MOSFET
 const float R_A = 4.0;               // ohm, enrolamento
 const float ETA_SUBIDA = 0.33;       // polias x redutor x motor, com I0 (C-103)
@@ -282,7 +283,7 @@ void atualizarPlanta(float dt) {
   float vDesejada = 0;
 
   if (efetiva == SUBIR && pwmMotor > 0) {
-    vDesejada = max(0.0f, (12.0f * pwmMotor / 255.0f - 2.2f) / KE_MASSA);
+    vDesejada = max(0.0f, (12.0f * pwmMotor / 255.0f - 2.5f) / KE_MASSA);
   } else if (efetiva == CURTO) {
     vDesejada = 0;                                // motor em curto: quase parado
   } else if (travaSolta) {
@@ -315,7 +316,7 @@ void lerSensores(float dt) {
 }
 #else
 // Prototipo real: altura pelo encoder Hall do motor (troque por ESP32Encoder
-// para usar o PCNT: o curso soma ~126.000 contagens), corrente de subida pelo
+// para usar o PCNT: o curso soma ~214.000 contagens), corrente de subida pelo
 // INA219 0x40, tensao e potencia geradas pelo INA219 0x41.
 float hAnterior = 0;
 void lerSensores(float dt) {

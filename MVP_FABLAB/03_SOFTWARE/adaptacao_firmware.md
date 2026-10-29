@@ -11,7 +11,7 @@ estados (`MANTER`, `SUBINDO`, `PREP_DESCIDA`, `DESCENDO`, `PARANDO`, `FALHA`,
 
 | Constante | Projeto principal | MVP | Origem |
 |-----------|-------------------|-----|--------|
-| `CURSO` | 1.70 | 1.00 | DEC-014 |
+| `CURSO` | 1.70 | 1.70 | DEC-014 (mesmo curso) |
 | `FOLGA_TOPO` | 0.02 | 0.01 | `02_ARQUITETO/mecanica.md` |
 | `V_SUBIDA` | 0.05 | 0.03 | C-108 |
 | `V_MAX_SUBIDA` | 0.09 | 0.045 | C-108 |
@@ -20,10 +20,10 @@ estados (`MANTER`, `SUBINDO`, `PREP_DESCIDA`, `DESCENDO`, `PARANDO`, `FALHA`,
 | `V_FREIO_TOTAL` | 0.025 | 0.01 | C-109 |
 | `KE_MASSA` | 253 | 214 | C-107 |
 | `V_GEN_MAX` | 28 | 14 | TVS 15 V |
-| `I_TRAVADO` | 3.0 | 1.5 | C-108 (2,8× a corrente de regime) |
+| `I_TRAVADO` | 3.0 | 1.5 | C-108 (2,4× a corrente de regime) |
 | `MM_POR_PULSO` | 0.0393 | 0.00793 | C-106 |
 | `ALIVIO_TRAVA` | 0.003 | 0.003 | = |
-| Massa no fuzzy e no painel | 20 kg | 5 kg | DEC-014 |
+| `MASSA` (planta virtual e painel) | 20 kg | 6 kg | DEC-014 |
 
 ## Mudanças de lógica
 
@@ -60,7 +60,7 @@ estados (`MANTER`, `SUBINDO`, `PREP_DESCIDA`, `DESCENDO`, `PARANDO`, `FALHA`,
 
 ## Painel Streamlit
 Cópia do painel de `03_SOFTWARE/dashboard/` em `dashboard/`, com a mesma
-estrutura e as mesmas abas. Mudam os parâmetros do simulador (5 kg, 1,00 m,
+estrutura e as mesmas abas. Mudam os parâmetros do simulador (6 kg, 1,70 m,
 `KE_MASSA` 214, rendimentos do MVP), a velocidade-alvo do fuzzy (0,02 a
 0,05 m/s) e a saída útil: as colunas `p_usb_w` e `e_usb_j` viram `p_leds_w` e
 `e_leds_j` (potência e energia nos 3 LEDs de nível). Ver `dashboard/README.md`.

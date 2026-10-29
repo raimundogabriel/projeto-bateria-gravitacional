@@ -9,7 +9,7 @@ Continua a numeração de `00_MASTER/HANDOFF.md` da raiz (até HANDOFF-008).
 - **Para:** ARQUITETO
 - **O quê:** Comprar um motorredutor 12 V 37 mm 1:90 com encoder (DEC-015),
   imprimir o tambor e fazer o ensaio 0 de
-  `../01_FISICA/validacao_experimental.md`: retroaciona com 2,5 kg direto no
+  `../01_FISICA/validacao_experimental.md`: retroaciona com 3 kg direto no
   tambor? K_e? R_a?
 - **Critério de pronto:** linha "K_e" e "Retroaciona" preenchidas; DEC-015
   confirmada ou plano B escolhido.
@@ -17,7 +17,7 @@ Continua a numeração de `00_MASTER/HANDOFF.md` da raiz (até HANDOFF-008).
 
 ### HANDOFF-010
 - **De:** ARQUITETO
-- **Para:** ARQUITETO (após Q-009 e Q-010)
+- **Para:** ARQUITETO (após Q-010)
 - **O quê:** Desenho cotado da torre e arquivos de fabricação: DXF da base,
   topo, carrinho e caixa; STL do tambor com catraca, polia, lingueta,
   mancal e suportes dos fins de curso.
@@ -51,6 +51,7 @@ Continua a numeração de `00_MASTER/HANDOFF.md` da raiz (até HANDOFF-008).
 - **De:** FÍSICO → **Para:** DESENVOLVEDOR
 - Painel Streamlit com os parâmetros do MVP.
 - Entrega: `../03_SOFTWARE/dashboard/`, cópia adaptada do painel principal
-  (49 J por ciclo, rendimento ~10 %, LEDs no lugar da USB). Em vez de um
+  (49 J por ciclo na época, 100 J com o porte de 2026-10-29; rendimento
+  ~10 %, LEDs no lugar da USB). Em vez de um
   seletor no painel principal, ficou uma cópia para não alterar o projeto
   principal.

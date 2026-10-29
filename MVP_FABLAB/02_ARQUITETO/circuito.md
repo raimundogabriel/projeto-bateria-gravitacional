@@ -36,7 +36,7 @@ flowchart LR
     MOT -->|"M− na descida"| DG["Diodo 1N5822"]
     DG --> INA2["INA219 nº 2<br/>0x41, gerado"]
     INA2 --> GEN["Nó GEN<br/>470 µF + TVS 15 V"]
-    GEN --> FIX["Carga fixa 120 Ω 2 W<br/>(sempre ligada)"]
+    GEN --> FIX["Carga fixa 100 Ω 2 W<br/>(sempre ligada)"]
     GEN --> FR["Frenagem 22 Ω 5 W<br/>+ MOSFET D4184"]
     GEN --> LEDS["3 LEDs de nível<br/>~2 V / ~6 V / ~10 V"]
     ESP -->|"GPIO 16/17 PWM<br/>18 R_EN, 13 L_EN"| IBT
@@ -83,7 +83,7 @@ capacitores do próprio IBT-2.
 ## Barramento gerado (GEN)
 M− → 1N5822 → INA219 nº 2 (high-side) → nó GEN com:
 - 470 µF 25 V + 100 nF; TVS SMBJ15A (conduz acima de ~16,7 V).
-- **Carga fixa** 120 Ω 2 W, sempre ligada: limita a descida mesmo sem ESP32.
+- **Carga fixa** 100 Ω 2 W, sempre ligada: limita a descida mesmo sem ESP32.
 - **Frenagem** 22 Ω 5 W em série com módulo MOSFET D4184 (GPIO 19, PWM
   5 kHz), 1N5819 em antiparalelo. Mais PWM = mais freio = descida mais lenta
   (mesma convenção do projeto principal).
@@ -91,7 +91,7 @@ M− → 1N5822 → INA219 nº 2 (high-side) → nó GEN com:
   amarelo com Zener 4,7 V + 1 kΩ (~6,5 V); vermelho com Zener 8,2 V + 1 kΩ
   (~10 V, ponto de projeto).
 
-Valores de 120 Ω e 22 Ω são o ponto de partida de C-109; o ensaio 4 e o 5
+Valores de 100 Ω e 22 Ω são o ponto de partida de C-109; o ensaio 4 e o 5
 decidem os finais.
 
 ## Trava

@@ -1,44 +1,47 @@
 # DECISÕES — MVP FABLAB
 
 Continua a numeração de `00_MASTER/DECISOES.md` da raiz (DEC-001 a DEC-013
-valem para o projeto principal). Todas abaixo são **propostas** de
-2026-10-28; viram decididas quando o Gabriel aprovar o PR ou escolher a
-variante (Q-009). As decisões do projeto principal que não aparecem aqui
+valem para o projeto principal). Propostas em 2026-10-28; o PR #4 foi
+aprovado e o porte (DEC-014) e a saída (DEC-022) foram decididos em
+2026-10-29. O motor (DEC-015) continua em escolha. As decisões do projeto principal que não aparecem aqui
 continuam valendo no MVP (DEC-002 unidades, DEC-004 controle pela
 frenagem, DEC-007 fuzzy, DEC-011 Wokwi, DEC-013 Streamlit).
 
-## DEC-014 — Massa de 5 kg e curso de 1,00 m (variante A)
-- **Data:** 2026-10-28
+## DEC-014 — Massa de 6 kg de anilhas e curso de 1,70 m
+- **Data:** 2026-10-28 (proposta), 2026-10-29 (decidida)
 - **Skill:** FÍSICO
-- **Status:** proposta, aguarda o Gabriel (Q-009)
+- **Status:** decidida pelo Gabriel em 2026-10-29 (Q-009)
 - **Contexto:** Pedido de uma releitura menor, montável num fablab, com motor
-  mais simples. Com 20 kg a estrutura pede metalon soldado e o motor pede um
-  planetário de ~R$ 450.
-- **Decisão:** m_c = 5 kg (galão de 5 L), h = 1,00 m, torre de ~1,5 m.
-  E_teo = 49 J por ciclo. Meta de geração: 3 LEDs de nível; a USB sai.
-- **Alternativas descartadas:** variante B, 10 kg e 1,2 m com planetário
-  1:71 (~R$ 200 a mais, USB de ~1,5 W só para power bank); manter 20 kg
-  (não cabe em fablab sem serralheria).
-- **Consequências:** `CURSO = 1.00`; FÍSICO refaz energia (C-101 a C-109);
-  ARQUITETO dimensiona tudo para 5 kg com margem até 10 kg.
+  mais simples. A proposta inicial era 5 kg em 1,00 m (variante A) ou 10 kg
+  em 1,20 m (variante B).
+- **Decisão:** m_c = 6 kg (anilhas que o grupo já tem), h = 1,70 m (o mesmo
+  curso do projeto principal), torre de ~2,05 m. E_teo = 100,1 J por ciclo.
+- **Alternativas descartadas:** 5 kg em 1,00 m (49 J, torre menor); 10 kg em
+  1,20 m (pede motor planetário mais caro); 20 kg (não cabe em fablab sem
+  serralheria).
+- **Consequências:** `CURSO = 1.70` e `MASSA = 6` no firmware e no painel;
+  FÍSICO refaz C-101 a C-109; ARQUITETO passa as colunas a 2,05 m, o tambor
+  a 150 mm úteis e prende o topo da torre à parede; carga fixa vai a 100 Ω.
 - **Revisável em:** se o ensaio 0 mostrar que o redutor não retroaciona com
-  5 kg, ou se o grupo quiser a variante B.
+  6 kg.
 
 ## DEC-015 — Motorredutor 12 V Ø 37 mm 1:90 com encoder Hall
 - **Data:** 2026-10-28
 - **Skill:** ARQUITETO
-- **Status:** proposta; compra depende do ensaio 0
-- **Contexto:** O motor precisa subir 5 kg, retroacionar na descida e gerar
+- **Status:** referência; em 2026-10-29 o Gabriel ainda está escolhendo o
+  motor pelo custo. O ensaio 0 fecha a escolha
+- **Contexto:** O motor precisa subir 6 kg, retroacionar na descida e gerar
   tensão para os LEDs, com peça de prateleira barata.
 - **Decisão:** Motorredutor DC 12 V, Ø 37 mm, engrenagens retas 1:90
-  (~107 rpm em vazio), torque nominal ≥ 0,5 N·m, encoder Hall de 11 PPR no
+  (~107 rpm em vazio), torque nominal ≥ 0,6 N·m, encoder Hall de 11 PPR no
   motor (família JGB37-520). K_e estimado 0,0119 V·s/rad; `KE_MASSA = 214`.
   O encoder do motor substitui o LPD3806.
 - **Alternativas descartadas:** sem-fim (JGY-370, vidro elétrico, limpador:
   autotravantes, não descem); 1:30 (tensão baixa, ~3 V a 0,05 m/s); motor de
   passo como gerador (sai CA, exige retificador e outra lógica de controle).
 - **Plano B:** se não retroacionar, 1:50 da mesma família (menos tensão: só
-  verde e amarelo) ou planetário 37 mm 1:71 (variante B).
+  verde e amarelo) ou planetário 37 mm 1:71 (mais caro, rende ~0,70 nos dois
+  sentidos).
 - **Consequências:** Fonte passa a 12 V 3 A; `MM_POR_PULSO = 0.00793`.
 - **Revisável em:** ensaio 0.
 
@@ -69,7 +72,7 @@ frenagem, DEC-007 fuzzy, DEC-011 Wokwi, DEC-013 Streamlit).
 - **Alternativas descartadas:** manter 1 relé DPDT (funciona, mas acrescenta
   peça e tempo de comutação; fica como plano B se o ensaio 4 falhar).
 - **Consequências:** Firmware ganha `modoPonte()`; pinos 23 e 27 liberados;
-  sem o ESP32, a carga fixa de 120 Ω limita a descida a ~0,05 m/s.
+  sem o ESP32, a carga fixa de 100 Ω limita a descida a ~0,05 m/s.
 
 ## DEC-018 — 2× INA219 no lugar de 3× INA226
 - **Data:** 2026-10-28
@@ -112,3 +115,19 @@ frenagem, DEC-007 fuzzy, DEC-011 Wokwi, DEC-013 Streamlit).
   mais só para repetir o painel).
 - **Consequências:** O MVP depende de Wi-Fi para o modo automático; o modo
   manual pelo Monitor Serial funciona sem rede.
+
+## DEC-022 — Saída útil só com LEDs, sem USB
+- **Data:** 2026-10-29
+- **Skill:** FÍSICO
+- **Status:** decidida (o Gabriel pediu para escolher o mais fácil e rápido)
+- **Contexto:** Com 6 kg descendo a 0,05 m/s o gerador entrega ~0,87 W a
+  ~10,7 V (C-107). Um buck para 5 V daria ~0,74 W (~150 mA).
+- **Decisão:** A saída útil são os 3 LEDs de nível no barramento gerado
+  (verde ~2 V, amarelo ~6,5 V, vermelho ~10 V), sem conversor nem firmware.
+- **Alternativas descartadas:** porta USB para celular (o celular puxa
+  ≥ 500 mA, a tensão desaba e a carga liga e desliga); USB para power bank
+  (muitos desligam abaixo de ~100 mA, e exige descer acima do limite de
+  0,055 m/s deste motor).
+- **Consequências:** Sai o buck XL4015 e a porta USB; o painel mostra
+  `p_leds_w` e `e_leds_j`.
+- **Revisável em:** se o motor escolhido gerar ≥ 2 W na descida.

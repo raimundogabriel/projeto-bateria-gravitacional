@@ -1,7 +1,7 @@
 # 🔋 Painel Remoto — Bateria Gravitacional (MVP fablab)
 
 Cópia do painel do projeto principal (`03_SOFTWARE/dashboard/`) adaptada ao
-MVP: 5 kg, 1,00 m, motorredutor 12 V 1:90 e LEDs de nível no lugar da saída
+MVP: 6 kg de anilhas, 1,70 m, motorredutor 12 V 1:90 e LEDs de nível no lugar da saída
 USB. A estrutura, as abas e o fuzzy são os mesmos.
 
 Painel da bateria gravitacional em **Python + Streamlit** (DEC-013). Segue a
@@ -10,10 +10,10 @@ mesma organização do projeto
 funções em `src/`, dados em `data/`, abas, cards e um sistema de lógica fuzzy.
 
 > ⚠️ **Nenhum ESP32 está conectado.** As leituras vêm de `src/simulador.py`,
-> uma planta virtual igual à do firmware do MVP (5 kg, 1,00 m, subida a
+> uma planta virtual igual à do firmware do MVP (6 kg, 1,70 m, subida a
 > 0,03 m/s, descida a 0,02–0,05 m/s, decisão fuzzy a cada 5 s). O **dia de
 > tarifas é acelerado**: um dia inteiro passa a cada 20 minutos, porque num
-> dia real a massa faz um único ciclo de cerca de 1 minuto.
+> dia real a massa faz um único ciclo de cerca de 1,5 minuto.
 
 ---
 
@@ -102,9 +102,9 @@ firmware publicar por MQTT (`03_SOFTWARE/contrato_dados.md`), implemente
 | --- | --- | --- |
 | timestamp | data e hora | 2026-10-28 18:00:00 |
 | estado | — | DESCENDO |
-| h_m / nivel_pct | m / % | 0.726 / 72.6 |
+| h_m / nivel_pct | m / % | 1.234 / 72.6 |
 | v_ms | m/s (positivo para cima) | -0.050 |
-| p_subida_w / p_gerada_w / p_leds_w | W | 0.0 / 0.73 / 0.15 |
+| p_subida_w / p_gerada_w / p_leds_w | W | 0.0 / 0.87 / 0.15 |
 | v_gen_v | V | 10.7 |
 | frenagem_pct | % | 18 |
 | tarifa_rs_kwh / posto | R$/kWh / — | 1.40 / Ponta |
@@ -112,7 +112,7 @@ firmware publicar por MQTT (`03_SOFTWARE/contrato_dados.md`), implemente
 | comando | −100 a +100 | -64 |
 | hora_sim | h (só no simulador) | 19.2 |
 | ciclo | contagem de descidas | 12 |
-| e_subida_j / e_gerada_j / e_leds_j / e_aux_j | J acumulados | 150 / 14.6 / 1.1 / 2880 |
+| e_subida_j / e_gerada_j / e_leds_j / e_aux_j | J acumulados | 300 / 29.7 / 2.2 / 2880 |
 
 `p_leds_w` e `e_leds_j` substituem `p_usb_w` e `e_usb_j` do projeto principal:
 o MVP não tem saída USB (DEC-014).

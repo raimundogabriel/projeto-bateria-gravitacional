@@ -20,7 +20,7 @@ mesmos comandos pelo Monitor Serial. Muda o que o MVP muda (ver
 | RTC DS1307/DS3231 | Hora por NTP no Wi-Fi (`Wokwi-GUEST` na simulação) |
 | LCD 20×4 e buzzer | Uma linha por segundo no Monitor Serial |
 | Potenciômetro da demanda USB e sondagem K4 | Chave de demanda no GPIO 27 (5 W) e comando `w` (demanda vinda do painel) |
-| 20 kg, 1,70 m, 0,05 m/s, `KE_MASSA` 253 | 5 kg, 1,00 m, 0,03 m/s, `KE_MASSA` 214 |
+| 20 kg, 1,70 m, 0,05 m/s, `KE_MASSA` 253 | 6 kg, 1,70 m, 0,03 m/s, `KE_MASSA` 214 (motor de referência 12 V 1:90) |
 | Parar com frenagem e relé | Parar com a ponte em `CURTO` (motor em curto freia a massa) |
 
 ## Flag `SIMULACAO`
@@ -51,15 +51,18 @@ Sem hora (NTP ainda não respondeu e sem `h`), o automático fica parado em
 Os tempos abaixo saíram do teste fora do Wokwi.
 
 1. Ao iniciar: `REARME`. A massa começa em h = 0,40 m e desce com frenagem a
-   100 % (~0,01 m/s, ~40 s; o LED verde do gerador acende fraco). Para
+   100 % (~0,011 m/s, ~36 s; o LED verde do gerador acende). Para
    encurtar, mude a chave "FC inferior" e volte. Fica em `MANTER`.
 2. `h3` (fora de ponta, nível 0): `SUBINDO`. Acendem R_EN, L_EN e RPWM; a
-   massa sobe a 0,03 m/s e chega ao topo em ~34 s, gastando ~150 J (`Esub`).
+   massa sobe a 0,03 m/s. Perto de 95 % (h ≈ 1,62 m, ~55 s) o fuzzy manda
+   parar pela R3 (tarifa baixa e nível alto); até ali gasta ~290 J (`Esub`).
+   Em manual (`s`) ela vai até o fim de curso, em 1,70 m.
 3. `h19` (ponta) com a chave de demanda desligada: fica em `MANTER` (R11).
 4. Ligue a chave de demanda (5 W): `PREP_DESCIDA` (RPWM pisca, o servo vai a
    80°), depois `DESCENDO`: L_EN apaga, LED vermelho da frenagem varia, e os
    LEDs do gerador acendem conforme a velocidade (os 3 perto de 0,05 m/s,
-   ~10,7 V). Cada descida inteira soma ~14,6 J em `Egen`.
+   ~10,7 V). Uma descida inteira soma ~29,7 J em `Egen`; o fuzzy pode
+   parar antes (descida parcial, R9).
 5. Mude a chave da emergência: `FALHA`, ponte em `CURTO`, servo volta a 20°.
    Volte a chave e digite `r`.
 6. Durante uma subida (`s`), gire a corrente acima de 1,5 A: em 0,5 s aparece

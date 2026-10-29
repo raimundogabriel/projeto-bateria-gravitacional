@@ -119,7 +119,7 @@ def reais(valor):
 # =====================================================================
 with st.sidebar:
     st.title("🔋 Bateria Gravitacional")
-    st.caption("MVP fablab · 5 kg · 1,00 m")
+    st.caption("MVP fablab · 6 kg · 1,70 m")
 
     fonte = st.radio("Fonte de dados", FONTES)
     janela = st.selectbox("Janela de tempo", list(JANELAS), index=1)
@@ -149,7 +149,7 @@ atualizar_a_cada = intervalo if (ao_vivo and fonte == FONTE_SIMULADOR) else None
 # =====================================================================
 st.title("Bateria Gravitacional — Painel Remoto (MVP fablab)")
 st.markdown(
-    "<div class='mock-aviso'>🧪 <b>Simulação</b> — planta virtual de 5 kg e 1,00 m, igual à do firmware do MVP. "
+    "<div class='mock-aviso'>🧪 <b>Simulação</b> — planta virtual de 6 kg e 1,70 m, igual à do firmware do MVP. "
     "A conexão com o ESP32 (MQTT <code>grav/*</code>) entra em <code>src/load_data.py</code>.</div>",
     unsafe_allow_html=True,
 )
@@ -365,7 +365,7 @@ with tab3:
         )
         st.caption(
             "Cada linha é uma descida, com a energia de subida consumida desde a descida anterior. "
-            "Uma descida parcial (regras R6 e R9) gera menos que os ~14,6 J de uma descida inteira, "
+            "Uma descida parcial (regras R6 e R9) gera menos que os ~29,7 J de uma descida inteira, "
             "e duas descidas seguidas aparecem sem subida entre elas."
         )
 
@@ -476,7 +476,7 @@ with tab5:
             ("Corrente de subida > 1,5 A por 500 ms", "Falha: massa travada"),
             ("Fim de curso inesperado", "Falha"),
             ("Botão de emergência", "Falha + corte do 12V_POT por hardware (motor e servo)"),
-            ("ESP32 travado ou desligado", "Ponte LIVRE: a carga fixa de 120 Ω limita a descida a ~0,05 m/s"),
+            ("ESP32 travado ou desligado", "Ponte LIVRE: a carga fixa de 100 Ω limita a descida a ~0,05 m/s"),
             ("Trava não solta em 3 s", "Falha: trava presa"),
         ], columns=["Condição", "Ação"]),
         width="stretch",
@@ -497,7 +497,7 @@ with tab6:
 
     st.markdown("""
     ## 🎯 Objetivo Geral
-    Armazenar energia elevando uma massa de 5 kg por 1,00 m quando a tarifa está baixa e
+    Armazenar energia elevando 6 kg de anilhas por 1,70 m quando a tarifa está baixa e
     liberá-la na descida, quando a tarifa está alta, acendendo os LEDs de nível. A decisão de
     subir, manter ou descer é tomada por lógica fuzzy no ESP32.
     """)
@@ -524,8 +524,8 @@ with tab6:
     - **Economia simulada:** `{reais(resumo['economia_rs'])}`
     - **Consumo da eletrônica, à parte:** `{em_wh(resumo['e_aux_j']):.2f}` Wh
 
-    Uma subida completa armazena `{E_TEORICA_J:.1f}` J (0,0136 Wh). A eletrônica, com cerca de 0,8 W,
-    gasta isso em cerca de 1 minuto: o MVP é didático e mostra a estratégia de decisão,
+    Uma subida completa armazena `{E_TEORICA_J:.1f}` J (0,0278 Wh). A eletrônica, com cerca de 0,8 W,
+    gasta isso em cerca de 2 minutos: o MVP é didático e mostra a estratégia de decisão,
     não economia real.
     """)
 
