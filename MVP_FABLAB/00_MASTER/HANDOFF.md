@@ -43,6 +43,13 @@ Continua a numeração de `00_MASTER/HANDOFF.md` da raiz (até HANDOFF-008).
   `grav/comando` com `w` de demanda) e coletor em `ler_esp32()` do painel.
   Depende de Q-006 (onde roda o broker).
 - **Critério de pronto:** o painel mostra o Wokwi ou o protótipo ao vivo.
+- **Andamento:** código pronto em 2026-10-29 (DEC-023): o firmware publica
+  `grav/estado` a cada 1 s e recebe `grav/comando` e `grav/tarifas`; com
+  `SIMULACAO 0` lê os 2 INA219 e o encoder pelo PCNT. O painel ganhou a fonte
+  “ESP32 (MQTT)” (`src/mqtt_esp32.py`) e comandos de verdade. Passo a passo
+  em `../DIY/`. Testado fora do hardware (firmware com MQTT simulado; painel
+  contra broker local com mensagens do firmware). Falta ver ao vivo num
+  ESP32 ou no Wokwi.
 - **Criado em:** 2026-10-28
 
 ## 🟢 FECHADOS

@@ -14,13 +14,22 @@
 // Comandos pelo Monitor Serial (115200):
 //   a = automatico (fuzzy)   s = subir   d = descer   p = parar   r = rearme
 //   h19 = forca a hora em 19 h (teste do fuzzy)   hx = volta a hora do NTP
-//   w3 = demanda de 3 W vinda do painel (no real, grav/comando)
+//   w3 = demanda de 3 W vinda do painel (o painel manda pelo MQTT)
+//
+// Painel: o estado vai por MQTT a cada 1 s para <TOPICO_BASE>/estado e os
+// comandos chegam por <TOPICO_BASE>/comando e <TOPICO_BASE>/tarifas
+// (passo a passo em MVP_FABLAB/DIY/).
 
 #define SIMULACAO 1
 
 #include <Wire.h>
 #include <WiFi.h>
 #include <time.h>
+#include <PubSubClient.h>
+#if !SIMULACAO
+#include <Adafruit_INA219.h>
+#include <ESP32Encoder.h>
+#endif
 
 // ---------- pinos (iguais ao circuito real, MVP_FABLAB/03_SOFTWARE/pinagem_mvp.md) ----------
 const uint8_t PIN_SERVO = 4;      // servo da lingueta (50 Hz)
@@ -42,14 +51,15 @@ const uint8_t PIN_LED_AMARELO = 14;
 const uint8_t PIN_LED_VERMELHO = 2;
 #endif
 
-// ---------- rede (hora por NTP, DEC-021) ----------
-#if SIMULACAO
+// ---------- rede: hora por NTP (DEC-021) e painel por MQTT ----------
+// No Wokwi: "Wokwi-GUEST", sem senha, e um broker publico. No fablab: a rede
+// do fablab (ou o roteador do celular) e o IP do notebook que roda o
+// Mosquitto e o painel (MVP_FABLAB/DIY/03_painel_mqtt.md).
 const char *WIFI_SSID = "Wokwi-GUEST";
 const char *WIFI_SENHA = "";
-#else
-const char *WIFI_SSID = "fablab";      // trocar pela rede do fablab
-const char *WIFI_SENHA = "senha";
-#endif
+const char *MQTT_BROKER = "broker.hivemq.com";
+const uint16_t MQTT_PORTA = 1883;
+const char *TOPICO_BASE = "grav-mvp-fablab";  // broker publico: um nome so seu; Mosquitto do notebook: "grav"
 const long FUSO_S = -3 * 3600;         // horario de Brasilia
 
 // ---------- parametros do MVP (MVP_FABLAB/01_FISICA) ----------
@@ -73,15 +83,22 @@ const int SERVO_ENGATADA = 20;     // graus; calibrar no ensaio 3
 const int SERVO_SOLTA = 80;        // graus
 const unsigned long T_SERVO = 300; // ms para o servo puxar a lingueta
 
-// Tarifa por posto horario (R$/kWh). Valores de exemplo: no prototipo
-// real vem do painel (topico grav/tarifas).
-const float TARIFA_FORA = 0.60;
-const float TARIFA_INTER = 0.90;
-const float TARIFA_PONTA = 1.40;
+// Tarifa por posto horario (R$/kWh). Valores de exemplo ate o painel
+// mandar os seus (topico <TOPICO_BASE>/tarifas, mensagem retida).
+float tarifaFora = 0.60;
+float tarifaInter = 0.90;
+float tarifaPonta = 1.40;
+
+// Potencia estimada nos 3 LEDs de nivel (Zener + 1 kOhm, acendem em 2, 6,5 e 10 V)
+const float LIMIAR_LED[] = {2.0, 6.5, 10.0};
+const float R_LED = 1000.0;
+const float CONSUMO_AUX_W = 0.8;       // ESP32 com Wi-Fi, INA219 e servo parado
 
 const unsigned long T_CONTROLE = 50;   // ms
 const unsigned long T_FUZZY = 5000;    // ms
 const unsigned long T_TELA = 1000;     // ms
+const unsigned long T_MQTT = 1000;     // ms entre publicacoes do estado
+const unsigned long T_RECONECTA = 10000; // ms entre tentativas de conectar no broker
 
 #if SIMULACAO
 // planta virtual (MVP_FABLAB/01_FISICA/calculos_energia.md)
@@ -124,15 +141,25 @@ int ticksTravado = 0;
 
 // leituras
 float corrente = 0, hora = 0, demanda = 0, tarifa = 0, vGen = 0;
-float pSubida = 0, pGerada = 0, eSubida = 0, eGerada = 0;
+float pSubida = 0, pGerada = 0, pLeds = 0, eSubida = 0, eGerada = 0, eLeds = 0, eAux = 0;
 float horaForcada = -1, demandaPainel = 0;
 bool horaValida = false;
 float comandoFuzzy = 0;
 long ciclos = 0;
 
-volatile long pulsos = 0;
+long pulsos = 0;                // contagem do encoder (x4)
 
-unsigned long ultControle = 0, ultFuzzy = 0, ultTela = 0;
+unsigned long ultControle = 0, ultFuzzy = 0, ultTela = 0, ultMqtt = 0, ultReconecta = 0;
+bool publicarJa = false;        // troca de estado: publica sem esperar 1 s
+
+WiFiClient rede;
+PubSubClient mqtt(rede);
+#if !SIMULACAO
+Adafruit_INA219 inaSubida(0x40);
+Adafruit_INA219 inaGerada(0x41);
+ESP32Encoder encoder;
+bool sensoresOk = false;
+#endif
 
 // =====================================================================
 // PWM (LEDC), compativel com o core 2.x e 3.x do ESP32
@@ -226,10 +253,17 @@ float fuzzy(float tar, float nivel, float dem) {
                 : constrain(c / maxDescer * 100, -100.0f, 0.0f);
 }
 
+const char *postoDaHora(float hr) {
+  if (hr >= 18 && hr < 21) return "ponta";
+  if ((hr >= 17 && hr < 18) || (hr >= 21 && hr < 22)) return "intermediario";
+  return "fora_ponta";
+}
+
 float tarifaDaHora(float hr) {
-  if (hr >= 18 && hr < 21) return TARIFA_PONTA;
-  if ((hr >= 17 && hr < 18) || (hr >= 21 && hr < 22)) return TARIFA_INTER;
-  return TARIFA_FORA;
+  const char *posto = postoDaHora(hr);
+  if (posto[0] == 'p') return tarifaPonta;
+  if (posto[0] == 'i') return tarifaInter;
+  return tarifaFora;
 }
 
 // =====================================================================
@@ -258,6 +292,7 @@ void entrar(Estado novo) {
   estado = novo;
   etapa = 0;
   inicioEtapa = millis();
+  publicarJa = true;
   Serial.print("-> ");
   Serial.println(NOME_ESTADO[novo]);
 }
@@ -315,21 +350,29 @@ void lerSensores(float dt) {
   atualizarPlanta(dt);
 }
 #else
-// Prototipo real: altura pelo encoder Hall do motor (troque por ESP32Encoder
-// para usar o PCNT: o curso soma ~214.000 contagens), corrente de subida pelo
-// INA219 0x40, tensao e potencia geradas pelo INA219 0x41.
+// Prototipo real: altura pelo encoder Hall do motor, contado pelo PCNT do
+// ESP32 (ESP32Encoder, x4: o curso soma ~214.000 contagens), corrente e
+// potencia de subida pelo INA219 0x40, tensao e potencia geradas pelo 0x41.
 float hAnterior = 0;
 void lerSensores(float dt) {
-  noInterrupts();
-  long p = pulsos;
-  interrupts();
-  h = p * MM_POR_PULSO / 1000.0;
-  v = (h - hAnterior) / dt;
+  pulsos = (long)encoder.getCount();
+  h = pulsos * MM_POR_PULSO / 1000.0;
+  v += ((h - hAnterior) / dt - v) * 0.5;   // filtro leve: o encoder anda aos saltos de 8 um
   hAnterior = h;
-  // corrente = ina1.getCurrent_mA() / 1000; pSubida = ina1.getPower_mW() / 1000;
-  // vGen = ina2.getBusVoltage_V(); pGerada = ina2.getPower_mW() / 1000;
+  if (!sensoresOk) return;
+  corrente = max(inaSubida.getCurrent_mA(), 0.0f) / 1000.0;
+  pSubida = max(inaSubida.getPower_mW(), 0.0f) / 1000.0;
+  vGen = inaGerada.getBusVoltage_V();
+  pGerada = max(inaGerada.getPower_mW(), 0.0f) / 1000.0;
 }
 #endif
+
+// LEDs de nivel: cada um conduz (vGen - limiar) / 1 kOhm a partir do seu limiar
+float potenciaLeds(float vg) {
+  float p = 0;
+  for (float limiar : LIMIAR_LED) p += max(vg - limiar, 0.0f) / R_LED * vg;
+  return p;
+}
 
 bool fimInferior() { return digitalRead(PIN_FC_INF) == HIGH || (SIMULACAO && h <= 0.0005); }
 bool fimSuperior() { return digitalRead(PIN_FC_SUP) == HIGH || (SIMULACAO && h >= CURSO); }
@@ -340,6 +383,10 @@ bool fimSuperior() { return digitalRead(PIN_FC_SUP) == HIGH || (SIMULACAO && h >
 void zerarPosicao() {
   h = 0;
   pulsos = 0;
+#if !SIMULACAO
+  encoder.clearCount();
+  hAnterior = 0;
+#endif
   posicaoConhecida = true;
 }
 
@@ -348,6 +395,9 @@ void controlar() {
   unsigned long naEtapa = agora - inicioEtapa;
 
   // ---- protecoes ----
+#if !SIMULACAO
+  if (!sensoresOk) falha("INA219 nao encontrado");
+#endif
   if (digitalRead(PIN_EMERG) == LOW) falha("emergencia");
   if (fabs(v) > V_LIMITE) falha("velocidade alta");
   if (vGen > V_GEN_MAX) falha("tensao gerada alta");
@@ -468,6 +518,8 @@ void decidir() {
   else if (estado == MANTER && comandoFuzzy < -30 && !fimInferior()) entrar(PREP_DESCIDA);
 }
 
+void executar(char c);
+
 void lerComando() {
   if (!Serial.available()) return;
   String c = Serial.readStringUntil('\n');
@@ -487,7 +539,12 @@ void lerComando() {
     Serial.println(demandaPainel);
     return;
   }
-  switch (c[0]) {
+  executar(c[0]);
+}
+
+// Comandos manuais, iguais pelo Monitor Serial e pelo painel
+void executar(char c) {
+  switch (c) {
     case 'a':
       modo = AUTOMATICO;
       Serial.println("modo automatico");
@@ -539,8 +596,103 @@ void mostrar() {
   Serial.println();
 }
 
-void IRAM_ATTR contarPulso() {
-  pulsos += (digitalRead(PIN_ENC_A) == digitalRead(PIN_ENC_B)) ? 1 : -1;
+// =====================================================================
+// MQTT: estado para o painel, comandos e tarifas do painel
+// =====================================================================
+String topico(const char *nome) { return String(TOPICO_BASE) + "/" + nome; }
+
+// Le um campo de um JSON plano, como {"acao":"subir","demanda_w":3}
+bool campoJson(const String &json, const char *chave, String &valor) {
+  int i = json.indexOf(String("\"") + chave + "\"");
+  if (i < 0) return false;
+  i = json.indexOf(':', i);
+  if (i < 0) return false;
+  i++;
+  while (i < (int)json.length() && json[i] == ' ') i++;
+  if (i < (int)json.length() && json[i] == '"') {
+    int fim = json.indexOf('"', i + 1);
+    if (fim < 0) return false;
+    valor = json.substring(i + 1, fim);
+  } else {
+    int fim = i;
+    while (fim < (int)json.length() && json[fim] != ',' && json[fim] != '}') fim++;
+    valor = json.substring(i, fim);
+    valor.trim();
+  }
+  return true;
+}
+
+void aoReceber(char *top, byte *dados, unsigned int n) {
+  String json;
+  for (unsigned int i = 0; i < n; i++) json += (char)dados[i];
+  String t = top, valor;
+  Serial.print("mqtt ");
+  Serial.print(t);
+  Serial.print(" ");
+  Serial.println(json);
+
+  if (t == topico("tarifas")) {
+    if (campoJson(json, "fora_ponta", valor)) tarifaFora = constrain(valor.toFloat(), 0.0f, 2.0f);
+    if (campoJson(json, "intermediario", valor)) tarifaInter = constrain(valor.toFloat(), 0.0f, 2.0f);
+    if (campoJson(json, "ponta", valor)) tarifaPonta = constrain(valor.toFloat(), 0.0f, 2.0f);
+    return;
+  }
+  if (t != topico("comando")) return;
+  if (campoJson(json, "demanda_w", valor)) demandaPainel = constrain(valor.toFloat(), 0.0f, 10.0f);
+  if (campoJson(json, "hora", valor)) {
+    float hr = valor.toFloat();
+    horaForcada = hr < 0 ? -1 : constrain(hr, 0.0f, 23.99f);
+  }
+  if (campoJson(json, "acao", valor)) {
+    if (valor == "auto") executar('a');
+    else if (valor == "subir") executar('s');
+    else if (valor == "descer") executar('d');
+    else if (valor == "parar") executar('p');
+    else if (valor == "rearmar") executar('r');
+  }
+}
+
+// Conecta no broker sem atrapalhar o controle: so tenta com a massa parada,
+// porque a conexao pode travar o loop por alguns segundos se o broker sumir.
+void manterMqtt(unsigned long agora) {
+  if (mqtt.connected()) {
+    mqtt.loop();
+    return;
+  }
+  if (WiFi.status() != WL_CONNECTED) return;
+  if (estado != MANTER && estado != FALHA) return;
+  if (ultReconecta != 0 && agora - ultReconecta < T_RECONECTA) return;
+  ultReconecta = agora;
+
+  String id = "grav-esp32-" + String((uint32_t)ESP.getEfuseMac(), HEX);
+  String online = topico("online");
+  Serial.print("MQTT: conectando em ");
+  Serial.println(MQTT_BROKER);
+  if (mqtt.connect(id.c_str(), online.c_str(), 1, true, "0")) {
+    mqtt.publish(online.c_str(), "1", true);
+    mqtt.subscribe(topico("comando").c_str());
+    mqtt.subscribe(topico("tarifas").c_str());
+    Serial.println("MQTT: conectado");
+    publicarJa = true;
+  } else {
+    Serial.print("MQTT: falhou, rc=");
+    Serial.println(mqtt.state());
+  }
+}
+
+void publicarEstado() {
+  static char buf[700];
+  snprintf(buf, sizeof(buf),
+           "{\"estado\":\"%s\",\"modo\":\"%s\",\"ponte\":\"%s\",\"h_m\":%.3f,\"nivel_pct\":%.1f,"
+           "\"v_ms\":%.3f,\"p_subida_w\":%.2f,\"p_gerada_w\":%.2f,\"p_leds_w\":%.3f,\"v_gen_v\":%.1f,"
+           "\"frenagem_pct\":%d,\"tarifa_rs_kwh\":%.2f,\"posto\":\"%s\",\"demanda_w\":%.1f,"
+           "\"comando\":%.1f,\"hora\":%.2f,\"hora_valida\":%s,\"ciclo\":%ld,\"e_subida_j\":%.1f,"
+           "\"e_gerada_j\":%.1f,\"e_leds_j\":%.2f,\"e_aux_j\":%.0f,\"i_a\":%.2f,\"motivo\":\"%s\"}",
+           NOME_ESTADO[estado], modo == AUTOMATICO ? "AUTOMATICO" : "MANUAL", NOME_PONTE[ponte],
+           h, nivel(), v, pSubida, pGerada, pLeds, vGen, (int)(frenagem * 100), tarifa, postoDaHora(hora),
+           demanda, comandoFuzzy, hora, horaValida ? "true" : "false", ciclos, eSubida, eGerada, eLeds,
+           eAux, corrente, estado == FALHA ? motivoFalha : "");
+  mqtt.publish(topico("estado").c_str(), buf);
 }
 
 // =====================================================================
@@ -559,7 +711,9 @@ void setup() {
 #if SIMULACAO
   for (uint8_t p : {PIN_LED_VERDE, PIN_LED_AMARELO, PIN_LED_VERMELHO}) pinMode(p, OUTPUT);
 #else
-  attachInterrupt(digitalPinToInterrupt(PIN_ENC_A), contarPulso, CHANGE);
+  ESP32Encoder::useInternalWeakPullResistors = puType::up;
+  encoder.attachFullQuad(PIN_ENC_A, PIN_ENC_B);
+  encoder.clearCount();
 #endif
 
   pwmIniciar(PIN_RPWM, CANAL_RPWM, 20000);
@@ -572,13 +726,32 @@ void setup() {
 
   Serial.begin(115200);
   Wire.begin(21, 22);
+#if !SIMULACAO
+  sensoresOk = inaSubida.begin() && inaGerada.begin();
+  if (sensoresOk) {
+    // subida: a calibracao padrao (32 V, ate 3,2 A) cobre a partida do motor;
+    // gerada: ~0,1 A e ate 14 V, entao a faixa de 16 V e 400 mA tem mais resolucao
+    inaGerada.setCalibration_16V_400mA();
+  } else {
+    Serial.println("INA219 nao encontrado (0x40 e 0x41): confira SDA 21, SCL 22 e o jumper A0 do segundo");
+  }
+#endif
+  WiFi.mode(WIFI_STA);
   WiFi.begin(WIFI_SSID, WIFI_SENHA);   // conecta em segundo plano
   configTime(FUSO_S, 0, "pool.ntp.org", "a.st1.ntp.br");
+  mqtt.setServer(MQTT_BROKER, MQTT_PORTA);
+  mqtt.setCallback(aoReceber);
+  mqtt.setBufferSize(768);
 
   maxSubir = centroide(0, 0, 0, 1);
   maxDescer = -centroide(1, 0, 0, 0);
 
   Serial.println("Bateria gravitacional - MVP fablab - ESP32");
+  Serial.print("MQTT: ");
+  Serial.print(MQTT_BROKER);
+  Serial.print(" topicos ");
+  Serial.print(TOPICO_BASE);
+  Serial.println("/estado, /comando, /tarifas");
   Serial.println("a=auto s=subir d=descer p=parar r=rearme h19=hora hx=hora do NTP w3=demanda do painel");
   entrar(REARME);  // posicao desconhecida: desce ate o fim de curso inferior
 }
@@ -596,10 +769,20 @@ void loop() {
     demanda = max(digitalRead(PIN_DEMANDA) == LOW ? DEMANDA_CHAVE : 0.0f, demandaPainel);
 
     lerSensores(dt);
+    pLeds = potenciaLeds(vGen);
     eSubida += pSubida * dt;
     eGerada += pGerada * dt;
+    eLeds += pLeds * dt;
+    eAux += CONSUMO_AUX_W * dt;
     controlar();
     aplicarAtuadores();
+  }
+
+  manterMqtt(agora);
+  if (mqtt.connected() && (publicarJa || agora - ultMqtt >= T_MQTT)) {
+    ultMqtt = agora;
+    publicarJa = false;
+    publicarEstado();
   }
 
   if (agora - ultFuzzy >= T_FUZZY) {

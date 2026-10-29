@@ -1,6 +1,6 @@
 # ESTADO ATUAL — MVP FABLAB
 Última atualização: 2026-10-29
-Atualizado por: FÍSICO / ARQUITETO / DESENVOLVEDOR (porte de 6 kg e 1,70 m)
+Atualizado por: DESENVOLVEDOR (MQTT e passo a passo DIY)
 
 ## ✅ CONCLUÍDO
 - [x] Avaliação e proposta da releitura (variantes A e B) → `../README.md`
@@ -14,17 +14,20 @@ Atualizado por: FÍSICO / ARQUITETO / DESENVOLVEDOR (porte de 6 kg e 1,70 m)
   relés, servo, NTP), testado fora do Wokwi com pinos simulados →
   `../03_SOFTWARE/firmware/` (HANDOFF-011, menos MQTT)
 - [x] Painel Streamlit do MVP → `../03_SOFTWARE/dashboard/` (HANDOFF-012)
+- [x] MQTT no firmware e fonte “ESP32 (MQTT)” no painel, com comandos e
+  tarifas; leituras reais do INA219 e do encoder com `SIMULACAO 0`
+  (DEC-023, HANDOFF-013). Testado fora do hardware
+- [x] Passo a passo para gravar o ESP32 e ligar ao painel → `../DIY/`
 
 ## 🔄 EM ANDAMENTO
 - Escolha do motor pelo custo — Gabriel (Q-012). Tudo está calculado para o
   12 V 1:90 de referência.
-- Rodar o firmware dentro do Wokwi e conferir o `diagram.json` — Gabriel /
-  DESENVOLVEDOR
+- Rodar o firmware dentro do Wokwi ou num ESP32 solto (`../DIY/`, parte A)
+  e ver o painel ao vivo — Gabriel / DESENVOLVEDOR (HANDOFF-011 e 013)
 
 ## ❌ NÃO INICIADO
 - Ensaio 0 do motor (HANDOFF-009) — decide a compra do resto
 - Desenho cotado e arquivos de corte/impressão (HANDOFF-010)
-- MQTT no firmware do MVP e coletor `ler_esp32()` no painel (HANDOFF-013)
 
 ## ⚠️ ALERTAS
 - O maior risco é o redutor de engrenagens retas não retroacionar com 6 kg.

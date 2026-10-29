@@ -131,3 +131,27 @@ frenagem, DEC-007 fuzzy, DEC-011 Wokwi, DEC-013 Streamlit).
 - **Consequências:** Sai o buck XL4015 e a porta USB; o painel mostra
   `p_leds_w` e `e_leds_j`.
 - **Revisável em:** se o motor escolhido gerar ≥ 2 W na descida.
+
+## DEC-023 — MQTT do MVP: broker no notebook, estado completo a cada 1 s
+- **Data:** 2026-10-29
+- **Skill:** DESENVOLVEDOR
+- **Status:** proposta
+- **Contexto:** Sem LCD (DEC-021), o painel é a única tela. O contrato da
+  raiz (`03_SOFTWARE/contrato_dados.md`) separa `grav/estado` (30 s),
+  `grav/acao`, `grav/energia` e `grav/alerta`. Q-006 (onde roda o broker)
+  segue aberta no projeto principal.
+- **Decisão:** No MVP o broker é o Mosquitto no notebook que roda o painel,
+  na mesma rede do ESP32. O ESP32 publica um único `grav/estado` a cada
+  1 s e a cada troca de estado, com todas as colunas do painel (energias,
+  ciclo, motivo da falha), e `grav/online` retido com testamento. O painel
+  publica `grav/comando` (`acao`, `demanda_w`, `hora`) e `grav/tarifas`
+  retido. JSON montado e lido sem biblioteca. O ESP32 só tenta conectar
+  no broker com a massa parada (`MANTER` ou `FALHA`), porque a conexão
+  pode bloquear o loop por segundos. Broker público só com `SIMULACAO 1`
+  (Wokwi).
+- **Alternativas descartadas:** os 4 tópicos do contrato (mais código para
+  ~400 bytes por segundo numa rede local); ArduinoJson (mais uma biblioteca
+  para mensagens planas); broker público com o protótipo real (qualquer um
+  que saiba o tópico manda descer).
+- **Consequências:** O painel só guarda dados enquanto está aberto (até
+  24 h em memória, CSV pela aba Histórico). Passo a passo em `../DIY/`.

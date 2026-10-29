@@ -48,10 +48,11 @@ sua pasta dentro de `MVP_FABLAB/`.
 
 | Pasta | Persona | Conteúdo |
 |-------|---------|----------|
-| `00_MASTER/` | todas | Estado, decisões (DEC-014 a DEC-022), handoffs (HANDOFF-009 a 013), questões (Q-009 a Q-012) |
+| `00_MASTER/` | todas | Estado, decisões (DEC-014 a DEC-023), handoffs (HANDOFF-009 a 013), questões (Q-009 a Q-012) |
 | `01_FISICA/` | FÍSICO | Premissas, energia e geração por velocidade, ensaios do MVP |
 | `02_ARQUITETO/` | ARQUITETO | Mecânica para fablab, circuito com diagramas, BOM e lista do que sai |
 | `03_SOFTWARE/` | DESENVOLVEDOR | Pinagem, firmware e projeto Wokwi do MVP, painel Streamlit adaptado |
+| `DIY/` | DESENVOLVEDOR | Passo a passo: gravar o ESP32, ligar ao painel por MQTT, problemas comuns |
 
 ## Ordem de leitura
 1. `00_MASTER/DECISOES.md` — cada corte e o motivo
@@ -61,3 +62,4 @@ sua pasta dentro de `MVP_FABLAB/`.
 5. `01_FISICA/validacao_experimental.md` — o ensaio 0 decide a compra do motor
 6. `03_SOFTWARE/firmware/README.md` — como rodar o MVP no Wokwi
 7. `03_SOFTWARE/dashboard/README.md` — painel Streamlit do MVP
+8. `DIY/README.md` — gravar o ESP32 e ligar ao painel

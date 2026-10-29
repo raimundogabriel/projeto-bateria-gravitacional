@@ -1,7 +1,8 @@
 # O QUE MUDA NO FIRMWARE E NO PAINEL — MVP FABLAB
 
-**Implementado em 2026-10-28** em `firmware/wokwi/` (HANDOFF-011), menos o
-MQTT (item 8) e as leituras reais de `SIMULACAO 0`. O painel está em
+**Implementado em 2026-10-28** em `firmware/wokwi/` (HANDOFF-011). O MQTT
+(item 8) e as leituras reais de `SIMULACAO 0` entraram em 2026-10-29
+(DEC-023, HANDOFF-013). O painel está em
 `dashboard/` (HANDOFF-012). O firmware partiu de
 `03_SOFTWARE/firmware/wokwi/sketch.ino` da raiz e mudou só o que está abaixo. A máquina de
 estados (`MANTER`, `SUBINDO`, `PREP_DESCIDA`, `DESCENDO`, `PARANDO`, `FALHA`,
@@ -53,10 +54,10 @@ estados (`MANTER`, `SUBINDO`, `PREP_DESCIDA`, `DESCENDO`, `PARANDO`, `FALHA`,
    fuzzy fica em MANTER e o modo manual continua funcionando.
 7. **Sem LCD e buzzer.** Remover `linhaLcd()` e o buzzer; o estado vai ao
    Monitor Serial a cada 1 s e ao MQTT.
-8. **MQTT é obrigatório no MVP.** Sem LCD, o painel é a única tela. Implementar
-   `grav/estado`, `grav/energia` e `grav/comando` de
-   `03_SOFTWARE/contrato_dados.md` (o mesmo trabalho do HANDOFF-004 do
-   projeto principal, que aproveita).
+8. **MQTT é obrigatório no MVP.** Sem LCD, o painel é a única tela.
+   Implementado de forma mais simples que `03_SOFTWARE/contrato_dados.md`
+   da raiz (DEC-023): um `grav/estado` completo a cada 1 s, `grav/online`,
+   `grav/comando` e `grav/tarifas`. Tópicos em `firmware/README.md`.
 
 ## Painel Streamlit
 Cópia do painel de `03_SOFTWARE/dashboard/` em `dashboard/`, com a mesma

@@ -10,7 +10,9 @@ mesmos comandos pelo Monitor Serial. Muda o que o MVP muda (ver
 |---------|---------|
 | `wokwi/sketch.ino` | Firmware do MVP (ESP32). Mesma pinagem do circuito real (`../pinagem_mvp.md`) |
 | `wokwi/diagram.json` | Circuito do Wokwi: ESP32 DevKit V1, servo, LEDs do IBT-2 e do barramento gerado, chaves, potenciômetro, KY-040 |
-| `wokwi/libraries.txt` | Nenhuma biblioteca externa no Wokwi (Wi-Fi, Wire e NTP vêm com o core do ESP32) |
+| `wokwi/libraries.txt` | Só a PubSubClient (MQTT) no Wokwi; Wi-Fi, Wire e NTP vêm com o core do ESP32 |
+
+Para gravar num ESP32 de verdade e ligar ao painel, siga `../../DIY/`.
 
 ## O que mudou em relação ao firmware principal
 | Principal | MVP |
@@ -22,6 +24,7 @@ mesmos comandos pelo Monitor Serial. Muda o que o MVP muda (ver
 | Potenciômetro da demanda USB e sondagem K4 | Chave de demanda no GPIO 27 (5 W) e comando `w` (demanda vinda do painel) |
 | 20 kg, 1,70 m, 0,05 m/s, `KE_MASSA` 253 | 6 kg, 1,70 m, 0,03 m/s, `KE_MASSA` 214 (motor de referência 12 V 1:90) |
 | Parar com frenagem e relé | Parar com a ponte em `CURTO` (motor em curto freia a massa) |
+| MQTT ainda não implementado | `grav/estado` a cada 1 s, `grav/comando` e `grav/tarifas` (DEC-023) |
 
 ## Flag `SIMULACAO`
 - `1` (Wokwi): massa, gerador e encoder viram uma planta virtual calculada no
@@ -29,13 +32,32 @@ mesmos comandos pelo Monitor Serial. Muda o que o MVP muda (ver
   C-109). O INA219 da subida vira o potenciômetro do GPIO 35 (0 a 3 A). Os 3
   LEDs de nível do gerador, que no real ficam direto no barramento com Zener,
   são acesos pelo código nos GPIOs 23, 14 e 2 (só no Wokwi).
-- `0` (protótipo): falta completar `lerSensores()` com os 2 INA219 e a
-  ESP32Encoder, e trocar `WIFI_SSID`/`WIFI_SENHA` pela rede do fablab.
+- `0` (protótipo): altura pelo encoder Hall contado no PCNT (ESP32Encoder),
+  corrente e potência de subida pelo INA219 0x40, tensão e potência geradas
+  pelo 0x41 (biblioteca Adafruit INA219). Sem os dois INA219 o firmware fica
+  em `FALHA`.
+
+## Rede e MQTT
+No topo do sketch: `WIFI_SSID`, `WIFI_SENHA`, `MQTT_BROKER`, `MQTT_PORTA` e
+`TOPICO_BASE`. O padrão é o do Wokwi (`Wokwi-GUEST` e `broker.hivemq.com`).
+No fablab, a rede local e o IP do notebook com o Mosquitto
+(`../../DIY/03_painel_mqtt.md`).
+
+| Tópico | Sentido | Conteúdo |
+|--------|---------|----------|
+| `<base>/estado` | ESP32 → painel | JSON com estado, modo, ponte, altura, velocidade, potências, tensão gerada, frenagem, tarifa, posto, demanda, comando fuzzy, hora, ciclos, energias, corrente e motivo da falha; a cada 1 s e a cada troca de estado |
+| `<base>/online` | ESP32 → painel | `1` ao conectar; `0` pelo testamento se cair (retido) |
+| `<base>/comando` | painel → ESP32 | `{"acao": "auto|subir|descer|parar|rearmar"}`, `{"demanda_w": 3}`, `{"hora": 19}` (−1 volta ao NTP) |
+| `<base>/tarifas` | painel → ESP32 | `{"fora_ponta": 0.6, "intermediario": 0.9, "ponta": 1.4}` (retido) |
+
+O ESP32 só tenta conectar no broker com a massa parada (`MANTER` ou
+`FALHA`): a conexão pode travar o loop por alguns segundos, e no meio de uma
+descida isso deixaria a frenagem sem controle.
 
 ## Comandos pelo Monitor Serial (115200)
 `a` automático · `s` subir · `d` descer · `p` parar · `r` rearme ·
 `h19` força a hora em 19 h · `hx` volta à hora do NTP · `w3` demanda de 3 W
-vinda do painel (`w0` zera)
+vinda do painel (`w0` zera). O painel manda os mesmos comandos por MQTT.
 
 Sem hora (NTP ainda não respondeu e sem `h`), o automático fica parado em
 `MANTER`; os comandos manuais funcionam.
@@ -69,5 +91,6 @@ Os tempos abaixo saíram do teste fora do Wokwi.
    "massa travada".
 7. `hx`: volta à hora do NTP (no Wokwi, a hora real de Brasília).
 
-O código foi compilado e testado fora do Wokwi, com pinos simulados, nesses
-cenários. **Dentro do Wokwi ainda não rodou.**
+O código foi compilado e testado fora do Wokwi, com pinos, Wi-Fi, MQTT,
+INA219 e encoder simulados, nesses cenários e com comandos chegando por
+MQTT. **Dentro do Wokwi e num ESP32 de verdade ainda não rodou.**
